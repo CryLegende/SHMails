@@ -1,0 +1,129 @@
+# SHMails Configuration v1.2.0
+
+# Préfixe utilisé dans les messages du plugin
+plugin_prefix: ""
+
+# Paramètres généraux
+max_mails_per_player: 30 # Nombre maximum de mails qu'un joueur peut avoir (0 pour infini)
+login_notification_delay_ticks: 60 # Délai en ticks (20 ticks = 1 seconde) avant d'afficher la notification des mails reçus
+max_message_line_length: 35 # Longueur maximale d'une ligne de message dans le lore de l'item
+date_format: "dd/MM/yyyy 'à' HH:mm"
+
+# Stockage des données
+# Type de stockage: "yaml" ou "sqlite"
+storage_type: "sqlite"
+
+# Configuration des sons
+sounds:
+  mail_sent: "ENTITY_PLAYER_LEVELUP;1.0;1.2"
+  mail_received: "ENTITY_EXPERIENCE_ORB_PICKUP;1.0;1.0"
+  mail_deleted: "ENTITY_ITEM_BREAK;1.0;0.8"
+  reply_mode_enter: "BLOCK_NOTE_BLOCK_PLING;1.0;1.5"
+  reply_mode_cancel: "BLOCK_NOTE_BLOCK_PLING;1.0;0.8"
+  gui_open: "BLOCK_CHEST_OPEN;1.0;1.0"
+  gui_close: "BLOCK_CHEST_CLOSE;1.0;1.0"
+  gui_click_button: "UI_BUTTON_CLICK;1.0;1.0"
+  gui_click_mail: "UI_BUTTON_CLICK;1.0;1.2"
+  action_error: "BLOCK_ANVIL_LAND;1.0;0.8"
+
+messages:
+  mail_sent: "&7&l« &a&lSH &8&l» &7Mail envoyé à &a%recipient%&7 !"
+  mail_received_notification: "&7&l« &e&lSH &8&l» &7Vous avez reçu un nouveau mail de &e%sender%&7 !"
+  mail_received_while_offline: "&7&l« &e&lSH &8&l» &7Vous avez &e%count% &7mail(s) dans votre boîte ! Tapez &b/mail&7 pour les lire."
+  no_new_mails_on_login: "&7&l« &e&lSH &8&l» &7Vous n'avez pas de nouveau mail."
+  player_not_found: "&7&l« &c&lSH &8&l» &7Le joueur &c%player%&7 n'a pas été trouvé ou n'a jamais joué sur le serveur."
+  mailbox_full_self: "&7&l« &6&lSH &8&l» &7Votre boîte mail est pleine (&6%current%/%max%&7). Supprimez des mails pour en recevoir de nouveaux."
+  recipient_mailbox_full: "&7&l« &6&lSH &8&l» &7La boîte mail de &6%recipient%&7 est pleine (&6%current%/%max%&7). Il ne peut pas recevoir votre mail."
+  cannot_mail_self: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas vous envoyer de mail à vous-même."
+  mail_deleted: "&7&l« &a&lSH &8&l» &7Mail supprimé."
+  reply_enter_mode: "&7&l« &e&lSH &8&l» &7Vous répondez à &e%sender%&7. Tapez votre message dans le chat. Tapez '&c&ocancel&7' pour annuler."
+  reply_message_sent: "&7&l« &a&lSH &8&l» &7Votre réponse à &a%recipient%&7 a été envoyée. Le mail original a été supprimé."
+  reply_cancelled: "&7&l« &e&lSH &8&l» &7Mode réponse annulé."
+  reply_cannot_self: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas répondre à un mail que vous vous êtes envoyé."
+  no_mails: "&7&l« &e&lSH &8&l» &7Vous n'avez aucun mail."
+  mail_usage: "&7&l« &c&lSH &8&l» &7Usage: &c/mail <joueur> <message>"
+  mail_open_gui: "&7&l« &e&lSH &8&l» &7Ouverture de votre boîte mail..."
+  admin_spy_on: "&7&l« &a&lSH &8&l» &7Vous espionnez maintenant les mails."
+  admin_spy_off: "&7&l« &e&lSH &8&l» &7Vous n'espionnez plus les mails." # Changé en information &e, car c'est un état informatif.
+  admin_spy_format: "&5[&dMail SPY&5] &d%sender% &e> &d%recipient% &f&l» &7%message%"
+  admin_mails_view_title_prefix: "&9Mails de " # Titre de GUI, pas de préfixe chat standard.
+  admin_config_reloaded: "&7&l« &a&lSH &8&l» &7Configuration de SHMails rechargée &aavec succès&7."
+  admin_cleared_mails_all: "&7&l« &a&lSH &8&l» &7Tous les mails de &a%player%&7 ont été supprimés."
+  admin_view_opening: "&7&l« &e&lSH &8&l» &7Ouverture de la boîte mail de &e%player%&7..."
+  must_be_player: "&7&l« &c&lSH &8&l» &7Cette commande doit être exécutée par un joueur."
+  no_permission: "&7&l« &c&lSH &8&l» &7Vous n'avez pas la permission d'exécuter cette action/commande."
+  error_occurred: "&7&l« &c&lSH &8&l» &7Une erreur est survenue. Veuillez contacter un administrateur."
+  error_mail_not_found: "&7&l« &c&lSH &8&l» &7Erreur: Ce mail n'existe plus ou n'a pas pu être trouvé."
+  error_cannot_interact_adminview: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas interagir avec les mails en mode spectateur admin sans la permission &c'shmails.admin.view.interact'&7."
+
+# Configuration du GUI de la boîte mail
+gui:
+  title: "&8&lMenu &8| Mails (%page%/%max_pages%)"
+  size: 54
+  mail_slots: "11-15,20-24,29-33"
+
+  mail_item:
+    material: "WRITABLE_BOOK"
+    name: "&7Mail de &e%sender%"
+    lore:
+      - "&8Reçu le %date%"
+      - ""
+      - "%message%"
+      - ""
+      - "&7&o(( &e&oClic Gauche &7&opour &e&oRépondre &7&o))"
+      - "&7&o(( &c&oClic Droit &7&opour &c&oSupprimer &7&o))"
+
+  previous_page_item:
+    slot: 48
+    material: "ARROW"
+    name: "&aPage Précédente"
+    lore:
+      - "&7Aller à la page %previous_page%"
+  next_page_item:
+    slot: 50
+    material: "ARROW"
+    name: "&aPage Suivante"
+    lore:
+      - "&7Aller à la page %next_page%"
+  close_item:
+    slot: 49
+    material: "PAPER" # Changé de BARRIER à PAPER pour variété, peut être ce que vous voulez
+    name: "&cFermer"
+    lore:
+      - ""
+      - "&7&o(( &c&oCliquez &7&opour fermer le menu &8&o))"
+  delete_all_mails_item:
+    enabled: true
+    slot: 45
+    material: "LAVA_BUCKET"
+    name: "&cSupprimer tous les mails"
+    lore:
+      - "&4ᴀᴄᴛɪᴏɴ ɪʀʀᴇᴠᴇʀѕɪʙʟᴇ."
+      - ""
+      - "&7Supprimer l'ensemble de vos mails."
+      - ""
+      - "&7&o(( &c&oCliquez pour supprimer vos mails &8&o))"
+
+  # Nouveau bouton d'information
+  info_button_item:
+    enabled: true
+    slot: 53 # En bas à droite pour un GUI de 54 slots (index 0-53)
+    material: "KNOWLEDGE_BOOK" # KNOWLEDGE_BOOK, WRITABLE_BOOK ou SIGN sont aussi de bonnes options
+    name: "&eInformations Utiles"
+    lore:
+      - ""
+      - "&7Pour envoyer un mail :"
+      - "&e  /mail <NomDuJoueur> <VotreMessage>"
+      - ""
+      - "&7&l« &f&lUtilité des mails &8&l»"
+      - "&8• &eContacter &7un &ejoueur &7lorsqu'il"
+      - "&7est &ehors ligne&7."
+      - ""
+      - "&8• &7Laisser des &emessages importants"
+      - "&7que les joueurs verront à leur &econnexion&7."
+      - ""
+
+  filler_item:
+    enabled: true
+    material: "BLACK_STAINED_GLASS_PANE"
+    name: " "

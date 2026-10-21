@@ -1,0 +1,42 @@
+name: SHMails
+version: '${project.version}'
+main: org.Cry_Legende.sHMails.SHMails
+api-version: '1.20'
+author: Cry_Legende
+
+commands:
+  mail:
+    description: Commande principale pour les mails.
+    usage: /mail [joueur] [message] ou /mail
+    aliases: [mails, shmails]
+  shmailadmin:
+    description: Commandes d'administration pour SHMails.
+    usage: /shmailadmin <view|spy|reload|clear> [args]
+    permission: shmails.admin
+    aliases: [shma]
+
+permissions:
+  shmails.use:
+    description: Permet d'utiliser les fonctionnalités de base des mails (ouvrir la boîte).
+    default: true
+  shmails.send:
+    description: Permet d'envoyer des mails.
+    default: true
+  shmails.admin:
+    description: Permet d'utiliser les commandes d'administration de base.
+    default: op
+  shmails.admin.view:
+    description: Permet de voir les mails d'un autre joueur.
+    default: op
+  shmails.admin.view.interact: # Nouvelle permission pour interagir avec les mails vus
+    description: Permet d'interagir (répondre/supprimer) avec les mails lors de la visualisation admin.
+    default: op
+  shmails.admin.spy:
+    description: Permet d'espionner les mails envoyés.
+    default: op
+  shmails.admin.reload:
+    description: Permet de recharger la configuration du plugin.
+    default: op
+  shmails.admin.clear:
+    description: Permet de supprimer les mails d'un joueur via commande admin.
+    default: op
