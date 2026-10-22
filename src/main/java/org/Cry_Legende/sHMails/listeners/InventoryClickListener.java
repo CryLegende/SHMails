@@ -1,6 +1,7 @@
 package org.Cry_Legende.sHMails.listeners;
 
 import org.Cry_Legende.sHMails.SHMails;
+import org.Cry_Legende.sHMails.dialog.ReplyDialogs;
 import org.Cry_Legende.sHMails.manager.ConfigManager;
 import org.Cry_Legende.sHMails.manager.GUIManager;
 import org.Cry_Legende.sHMails.manager.MailManager;
@@ -158,6 +159,14 @@ public class InventoryClickListener implements Listener {
                         if (mail.getSenderUUID().equals(player.getUniqueId())) {
                             player.sendMessage(configManager.getMessage("reply_cannot_self"));
                             configManager.playSound(player, "action_error");
+                            return;
+                        }
+
+                        // Clients 1.21.6+ : la réponse se saisit dans un dialogue (mêmes envoi et limites qu'au chat).
+                        ReplyDialogs dialogs = plugin.getReplyDialogs();
+                        if (dialogs != null && dialogs.open(player, mail)) {
+                            guiManager.clearViewerContext(player.getUniqueId()); // Contexte fermé
+                            configManager.playSound(player, "reply_mode_enter");
                             return;
                         }
 

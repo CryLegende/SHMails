@@ -2,6 +2,8 @@ package org.Cry_Legende.sHMails;
 
 import org.Cry_Legende.sHMails.commands.AdminMailCommand;
 import org.Cry_Legende.sHMails.commands.MailCommand;
+import org.Cry_Legende.sHMails.dialog.ReplyDialogListener;
+import org.Cry_Legende.sHMails.dialog.ReplyDialogs;
 import org.Cry_Legende.sHMails.listeners.InventoryClickListener;
 import org.Cry_Legende.sHMails.listeners.PlayerChatListener;
 import org.Cry_Legende.sHMails.listeners.PlayerJoinListener;
@@ -23,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 public class SHMails extends JavaPlugin {
@@ -32,6 +35,8 @@ public class SHMails extends JavaPlugin {
     private MailManager mailManager;
     private GUIManager guiManager;
     private DatabaseManager databaseManager;
+    // null si l'API des dialogues est absente du serveur (réponse par chat uniquement)
+    private ReplyDialogs replyDialogs;
     private final Set<UUID> mailSpies = new HashSet<>(); // Ceci devient le cache en mémoire
 
     public final Map<UUID, UUID> replyingToOriginalMailId = new ConcurrentHashMap<>();
@@ -83,6 +88,9 @@ public class SHMails extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (replyDialogs != null) {
+            replyDialogs.shutdown();
+        }
         saveSpies(); // Sauvegarder les spies
         if (mailManager != null) {
             mailManager.saveAllPlayerData();
@@ -111,6 +119,22 @@ public class SHMails extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(this), this);
         Bukkit.getPluginManager().registerEvents(new InventoryClickListener(this), this);
         Bukkit.getPluginManager().registerEvents(new PlayerChatListener(this), this);
+        registerDialogs();
+    }
+
+    /**
+     * Réponse par dialogue natif (1.21.6+). Si l'API des dialogues n'existe pas sur ce serveur, le plugin garde le mode
+     * réponse par chat : un dialogue n'est jamais indispensable.
+     */
+    private void registerDialogs() {
+        try {
+            ReplyDialogs dialogs = new ReplyDialogs(this);
+            Bukkit.getPluginManager().registerEvents(new ReplyDialogListener(this, dialogs), this);
+            replyDialogs = dialogs;
+        } catch (RuntimeException | LinkageError e) {
+            replyDialogs = null;
+            getLogger().log(Level.WARNING, "API des dialogues indisponible : réponse par chat uniquement.", e);
+        }
     }
 
     public void loadSpies() {
@@ -170,6 +194,13 @@ public class SHMails extends JavaPlugin {
 
     public DatabaseManager getDatabaseManager() {
         return databaseManager;
+    }
+
+    /**
+     * Réponse par dialogue, ou null si l'API des dialogues est indisponible.
+     */
+    public ReplyDialogs getReplyDialogs() {
+        return replyDialogs;
     }
 
     public Set<UUID> getMailSpies() { // Ceci est maintenant le cache en mémoire

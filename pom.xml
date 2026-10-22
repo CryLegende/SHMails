@@ -72,6 +72,10 @@
             <id>sonatype</id>
             <url>https://oss.sonatype.org/content/groups/public/</url>
         </repository>
+        <repository>
+            <id>viaversion-repo</id>
+            <url>https://repo.viaversion.com</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -79,6 +83,13 @@
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
             <version>26.3.build.209-stable</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- ViaVersion est facultatif : seule la classe ViaSupport s'en sert -->
+        <dependency>
+            <groupId>com.viaversion</groupId>
+            <artifactId>viaversion-api</artifactId>
+            <version>5.12.1</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

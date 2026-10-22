@@ -39,6 +39,7 @@ messages:
   reply_enter_mode: "&7&l« &e&lSH &8&l» &7Vous répondez à &e%sender%&7. Tapez votre message dans le chat. Tapez '&c&ocancel&7' pour annuler."
   reply_message_sent: "&7&l« &a&lSH &8&l» &7Votre réponse à &a%recipient%&7 a été envoyée. Le mail original a été supprimé."
   reply_cancelled: "&7&l« &e&lSH &8&l» &7Mode réponse annulé."
+  dialog_expired: "&7&l« &e&lSH &8&l» &7Cette réponse a &eexpiré&7. Cliquez à nouveau sur le mail pour répondre."
   reply_cannot_self: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas répondre à un mail que vous vous êtes envoyé."
   no_mails: "&7&l« &e&lSH &8&l» &7Vous n'avez aucun mail."
   mail_usage: "&7&l« &c&lSH &8&l» &7Usage: &c/mail <joueur> <message>"
@@ -55,6 +56,31 @@ messages:
   error_occurred: "&7&l« &c&lSH &8&l» &7Une erreur est survenue. Veuillez contacter un administrateur."
   error_mail_not_found: "&7&l« &c&lSH &8&l» &7Erreur: Ce mail n'existe plus ou n'a pas pu être trouvé."
   error_cannot_interact_adminview: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas interagir avec les mails en mode spectateur admin sans la permission &c'shmails.admin.view.interact'&7."
+
+# Réponse à un mail par dialogue natif (clients 1.21.6 et plus), à la place de « tapez votre message dans le chat ».
+# Les clients plus anciens (ou actif: false) gardent le mode réponse par chat, inchangé (« cancel » pour annuler).
+# Variables : %sender% (auteur du mail) %date% %message% (texte du mail, affiché tel quel) %max% (longueur maximale).
+# Codes & et &#RRGGBB acceptés. Les messages envoyés dans le chat (envoyé, annulé, expiré...) restent dans « messages ».
+dialogues:
+  # false : tous les joueurs répondent dans le chat
+  actif: true
+  # Version de protocole minimale du client pour recevoir un dialogue (771 = 1.21.6).
+  # Sans ViaVersion, tous les clients sont considérés compatibles.
+  min-protocol: 771
+  # Durée de validité d'un dialogue ouvert, en secondes : passé ce délai, envoyer ne fait plus rien
+  expiration-secondes: 300
+  reponse:
+    titre: "&#F9C572&lRépondre à &e&l%sender%"
+    corps:
+      - "&7Mail reçu le &e%date%"
+      - ""
+      - "&f%message%"
+    champ: "&fVotre réponse &7(%max% caractères maximum)"
+    envoyer: "&a&lEnvoyer"
+    annuler: "&c&lAnnuler"
+    erreurs:
+      vide: "&cLa réponse ne peut pas être vide."
+      invalide: "&cRéponse invalide : %max% caractères maximum, sans caractère spécial."
 
 # Configuration du GUI de la boîte mail
 gui:

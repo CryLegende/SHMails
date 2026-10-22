@@ -16,7 +16,16 @@
 
 Boîte aux lettres en jeu (/mail) : envoi, réponse, notification à la connexion et outils staff.
 
+- **Réponse par dialogue natif** : sur un client 1.21.6 ou plus, un clic gauche sur un mail ouvre un dialogue qui rappelle le mail reçu (auteur, date, texte) avec un champ de réponse et deux boutons, **Envoyer** et **Annuler**, à la place de « tapez votre message dans le chat ». Échap annule proprement.
+- **Mêmes règles que le chat** : la réponse part par la même méthode d'envoi (boîte du destinataire pleine, notification, espionnage staff), le mail d'origine est supprimé comme avant, 256 caractères au plus et ni `§` ni caractère de contrôle, comme le chat de Minecraft.
+- **Saisie à usage unique** : chaque dialogue porte un jeton aléatoire ; un clic n'est pris en compte que si le jeton correspond au dialogue en cours du joueur, avant expiration (`dialogues.expiration-secondes`). La saisie est annulée si le joueur se déconnecte.
+- **Repli sur le chat** : les clients plus anciens (ViaVersion donne leur version), `dialogues.actif: false` ou une API de dialogues absente gardent exactement le mode réponse par chat d'avant (« cancel » pour annuler).
+
 Utilisé sur : **Opale**.
+
+## Dépendances
+
+- Optionnelles : `ViaVersion` (version du client pour choisir dialogue ou chat ; sans lui tous les clients sont considérés compatibles)
 
 ## Commandes
 
@@ -44,7 +53,7 @@ Fichiers par défaut repris du serveur (secrets remplacés par `CHANGE_ME`). Cli
 
 <pre>
 plugins/SHMails/
-└── <a href="src/main/resources/config.yml">config.yml</a>
+└── <a href="src/main/resources/config.yml">config.yml</a>      dialogues.actif, dialogues.min-protocol (771 = 1.21.6), dialogues.expiration-secondes, dialogues.reponse (textes)
 </pre>
 
 ## Compilation
