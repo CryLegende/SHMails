@@ -20,6 +20,7 @@ Boîte aux lettres en jeu (/mail) : envoi, réponse, notification à la connexio
 - **Mêmes règles que le chat** : la réponse part par la même méthode d'envoi (boîte du destinataire pleine, notification, espionnage staff), le mail d'origine est supprimé comme avant, 256 caractères au plus et ni `§` ni caractère de contrôle, comme le chat de Minecraft.
 - **Saisie à usage unique** : chaque dialogue porte un jeton aléatoire ; un clic n'est pris en compte que si le jeton correspond au dialogue en cours du joueur, avant expiration (`dialogues.expiration-secondes`). La saisie est annulée si le joueur se déconnecte.
 - **Repli sur le chat** : les clients plus anciens (ViaVersion donne leur version), `dialogues.actif: false` ou une API de dialogues absente gardent exactement le mode réponse par chat d'avant (« cancel » pour annuler).
+- **Suppression sans mail fantôme** : après un clic droit « supprimer » (ou « tout supprimer »), le menu est reconstruit depuis le cache déjà à jour, au tick suivant, au lieu d'une relecture de la base qui pouvait devancer la suppression et réafficher le mail. L'item disparaît du menu au moment du clic.
 
 Utilisé sur : **Opale**.
 

@@ -130,7 +130,8 @@ public class InventoryClickListener implements Listener {
                 player.getUniqueId().equals(mailOwnerUUID)) {
                 mailManager.deleteAllMailsForPlayer(player.getUniqueId()); // Nom de méthode changé
                 player.sendMessage(configManager.getMessage("mail_deleted")); // Message générique ou spécifique
-                guiManager.openMailboxGUI(player, player.getUniqueId(), 1);
+                // Cache déjà vidé : on l'affiche tel quel (une relecture de la base pourrait devancer la suppression).
+                guiManager.openMailboxGUI(player, player.getUniqueId(), 1, false);
                 configManager.playSound(player, "mail_deleted");
             } else {
                 PersistentDataContainer container = clickedMeta.getPersistentDataContainer();
@@ -183,7 +184,10 @@ public class InventoryClickListener implements Listener {
                         mailManager.deleteMail(mailOwnerUUID, mailId);
                         player.sendMessage(configManager.getMessage("mail_deleted"));
                         configManager.playSound(player, "mail_deleted");
-                        guiManager.openMailboxGUI(player, mailOwnerUUID, currentPage);
+                        // Le mail disparaît tout de suite du menu encore ouvert, puis le menu est reconstruit depuis le cache
+                        // (déjà à jour) : relire la base ici pouvait devancer la suppression et réafficher le mail.
+                        clickedInventory.setItem(event.getSlot(), null);
+                        guiManager.openMailboxGUI(player, mailOwnerUUID, currentPage, false);
                     }
                     // Shift+Clic pour Lu/Non lu supprimé
                 }

@@ -38,6 +38,16 @@ public class GUIManager {
     }
 
     public void openMailboxGUI(Player viewer, UUID mailOwnerUUID, int page) {
+        openMailboxGUI(viewer, mailOwnerUUID, page, true);
+    }
+
+    /**
+     * @param reload true : relit les mails depuis la source avant d'afficher (ouverture, changement de page) ;
+     *               false : affiche le cache tel quel. À utiliser juste après une suppression : le cache est déjà à jour,
+     *               alors que la suppression en base part dans une tâche asynchrone indépendante, et une relecture
+     *               lancée en même temps peut la devancer, rendre l'ancienne liste et réafficher le mail supprimé.
+     */
+    public void openMailboxGUI(Player viewer, UUID mailOwnerUUID, int page, boolean reload) {
         OfflinePlayer mailOwner = Bukkit.getOfflinePlayer(mailOwnerUUID);
         if (!mailOwner.hasPlayedBefore() && !mailOwner.isOnline()) {
             viewer.sendMessage(configManager.getMessage("player_not_found", "%player%", mailOwnerUUID.toString()));
@@ -47,7 +57,7 @@ public class GUIManager {
 
         configManager.playSound(viewer, "gui_open");
 
-        mailManager.loadPlayerDataAsync(mailOwnerUUID, () -> {
+        Runnable render = () -> {
             List<Mail> mails = mailManager.getPlayerMails(mailOwnerUUID);
 
             if (mails.isEmpty() && viewer.getUniqueId().equals(mailOwnerUUID)) {
@@ -113,7 +123,12 @@ public class GUIManager {
                     viewer.openInventory(gui);
                 }
             }.runTask(plugin);
-        });
+        };
+        if (reload) {
+            mailManager.loadPlayerDataAsync(mailOwnerUUID, render);
+        } else {
+            render.run(); // thread principal (clic) : le menu est ouvert au tick suivant par le runTask ci-dessus
+        }
     }
 
     private static boolean isControlSlot(int slot, ConfigManager cfgManager) {
