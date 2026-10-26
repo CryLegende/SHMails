@@ -11,12 +11,10 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
-import org.bukkit.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -97,7 +95,7 @@ public class MailCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
         if (!sender.hasPermission("shmails.send") && args.length > 0) { // S'ils n'ont pas la perm d'envoyer, pas de suggestion de joueur
-            return null;
+            return List.of(); // null = liste des joueurs par défaut de Bukkit
         }
 
         List<String> completions = new ArrayList<>();
@@ -112,11 +110,10 @@ public class MailCommand implements CommandExecutor, TabCompleter {
                     completions.add(onlinePlayer.getName());
                 }
             }
-            StringUtil.copyPartialMatches(args[0], Arrays.asList(Bukkit.getOnlinePlayers().stream().map(Player::getName).toArray(String[]::new)), completions);
             completions.sort(String.CASE_INSENSITIVE_ORDER);
             return completions;
         }
         // Aucune complétion pour le message lui-même (args.length >= 2)
-        return null;
+        return List.of();
     }
 }

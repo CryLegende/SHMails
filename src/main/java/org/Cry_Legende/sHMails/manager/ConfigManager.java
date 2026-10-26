@@ -3,6 +3,8 @@ package org.Cry_Legende.sHMails.manager;
 import org.Cry_Legende.sHMails.SHMails;
 import org.Cry_Legende.sHMails.utils.ChatUtils;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.Sound;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -10,6 +12,7 @@ import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 public class ConfigManager {
@@ -113,12 +116,30 @@ public class ConfigManager {
         }
         try {
             String[] parts = soundString.split(";");
-            Sound sound = Sound.valueOf(parts[0].toUpperCase());
+            Sound sound = sound(parts[0]);
+            if (sound == null) {
+                throw new IllegalArgumentException("unknown sound " + parts[0]);
+            }
             float volume = (parts.length > 1) ? Float.parseFloat(parts[1]) : 1.0f;
             float pitch = (parts.length > 2) ? Float.parseFloat(parts[2]) : 1.0f;
             player.playSound(player.getLocation(), sound, volume, pitch);
         } catch (IllegalArgumentException e) {
             plugin.getLogger().warning("Invalid sound configuration for key '" + soundKey + "': " + soundString + " - " + e.getMessage());
+        }
+    }
+
+    /** Son lu en config : ancien nom (ENTITY_PLAYER_LEVELUP) ou clé (minecraft:entity.player.levelup). */
+    static Sound sound(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        String s = raw.trim();
+        if (s.indexOf(':') >= 0 || s.indexOf('.') >= 0) {
+            NamespacedKey key = NamespacedKey.fromString(s.toLowerCase(Locale.ROOT));
+            return key == null ? null : Registry.SOUND_EVENT.get(key);
+        }
+        try {
+            return (Sound) Sound.class.getField(s.toUpperCase(Locale.ROOT)).get(null);
+        } catch (ReflectiveOperationException | ClassCastException e) {
+            return null;
         }
     }
 

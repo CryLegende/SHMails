@@ -38,79 +38,104 @@ public class MailManager {
     }
 
     public void sendMail(UUID senderUUID, String senderName, UUID recipientUUID, String messageContent) {
+        sendMail(senderUUID, senderName, recipientUUID, messageContent, null);
+    }
+
+    /**
+     * La boîte du destinataire est chargée hors du thread principal, puis le mail est remis sur le thread principal :
+     * les listes du cache ne sont modifiées que là (elles ne sont pas synchronisées).
+     *
+     * @param onDelivered lancé sur le thread principal une fois le mail remis, jamais si la boîte est pleine (peut être null)
+     */
+    public void sendMail(UUID senderUUID, String senderName, UUID recipientUUID, String messageContent, Runnable onDelivered) {
         new BukkitRunnable() {
             @Override
             public void run() {
-                List<Mail> recipientMailsLoaded = getPlayerMails(recipientUUID);
-
-                int maxMails = configManager.getMaxMailsPerPlayer();
-                if (maxMails > 0 && recipientMailsLoaded.size() >= maxMails) {
-                    Player senderOnline = Bukkit.getPlayer(senderUUID);
-                    if (senderOnline != null && senderOnline.isOnline()) {
-                        OfflinePlayer recipientOffline = Bukkit.getOfflinePlayer(recipientUUID);
-                        new BukkitRunnable() {
-                            @Override
-                            public void run() {
-                                senderOnline.sendMessage(configManager.getMessage("recipient_mailbox_full",
-                                    "%recipient%", recipientOffline.getName() != null ? recipientOffline.getName() : "Joueur Inconnu",
-                                    "%current%", String.valueOf(recipientMailsLoaded.size()),
-                                    "%max%", String.valueOf(maxMails)
-                                ));
-                                configManager.playSound(senderOnline, "action_error");
-                            }
-                        }.runTask(plugin);
-                    }
-                    return;
-                }
-
-                Mail mail = new Mail(senderUUID, senderName, recipientUUID, messageContent);
-
-                // Mettre à jour le cache
-                List<Mail> cachedMails = mailCache.computeIfAbsent(recipientUUID, k -> new ArrayList<>());
-                cachedMails.add(0, mail);
-                cachedMails.sort(Comparator.comparingLong(Mail::getTimestamp).reversed());
-                if (maxMails > 0 && cachedMails.size() > maxMails) { // S'assurer de ne pas dépasser la limite dans le cache aussi
-                    cachedMails.remove(cachedMails.size() - 1);
-                }
-
-
-                if ("sqlite".equalsIgnoreCase(configManager.getStorageType()) && databaseManager != null) {
-                    databaseManager.saveMailAsync(mail);
-                } else {
-                    savePlayerDataToFile(recipientUUID, cachedMails);
-                }
-
-                new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        Player recipientOnline = Bukkit.getPlayer(recipientUUID);
-                        if (recipientOnline != null && recipientOnline.isOnline()) {
-                            recipientOnline.sendMessage(configManager.getMessage("mail_received_notification", "%sender%", senderName));
-                            configManager.playSound(recipientOnline, "mail_received");
-                        }
-
-                        Player senderOnline = Bukkit.getPlayer(senderUUID);
-                        if (senderOnline != null && senderOnline.isOnline()) {
-                            OfflinePlayer recipientOffline = Bukkit.getOfflinePlayer(recipientUUID);
-                            senderOnline.sendMessage(configManager.getMessage("mail_sent", "%recipient%", recipientOffline.getName() != null ? recipientOffline.getName() : "Joueur Inconnu"));
-                            configManager.playSound(senderOnline, "mail_sent");
-                        }
-
-                        String spyMessage = configManager.getRawMessage("admin_spy_format",
-                            "%sender%", senderName,
-                            "%recipient%", Bukkit.getOfflinePlayer(recipientUUID).getName() != null ? Bukkit.getOfflinePlayer(recipientUUID).getName() : "Inconnu",
-                            "%message%", messageContent);
-
-                        plugin.getMailSpies().forEach(spyUUID -> {
-                            Player spy = Bukkit.getPlayer(spyUUID);
-                            if (spy != null && spy.isOnline()) {
-                                spy.sendMessage(spyMessage);
-                            }
-                        });
-                    }
-                }.runTask(plugin);
+                List<Mail> loaded = getPlayerMails(recipientUUID);
+                if (!plugin.isEnabled()) return;
+                Bukkit.getScheduler().runTask(plugin, () ->
+                    deliver(senderUUID, senderName, recipientUUID, messageContent, loaded, onDelivered));
             }
         }.runTaskAsynchronously(plugin);
+    }
+
+    private void deliver(UUID senderUUID, String senderName, UUID recipientUUID, String messageContent,
+                         List<Mail> loaded, Runnable onDelivered) {
+        // Liste déjà chargée : reprise telle quelle si le cache a été vidé entre-temps (départ du destinataire)
+        List<Mail> cachedMails = mailCache.computeIfAbsent(recipientUUID, k -> loaded);
+        OfflinePlayer recipientOffline = Bukkit.getOfflinePlayer(recipientUUID);
+        String recipientName = recipientOffline.getName();
+
+        int maxMails = configManager.getMaxMailsPerPlayer();
+        if (maxMails > 0 && cachedMails.size() >= maxMails) {
+            Player senderOnline = Bukkit.getPlayer(senderUUID);
+            if (senderOnline != null && senderOnline.isOnline()) {
+                senderOnline.sendMessage(configManager.getMessage("recipient_mailbox_full",
+                    "%recipient%", recipientName != null ? recipientName : "Joueur Inconnu",
+                    "%current%", String.valueOf(cachedMails.size()),
+                    "%max%", String.valueOf(maxMails)
+                ));
+                configManager.playSound(senderOnline, "action_error");
+            }
+            releaseIfUnused(recipientUUID);
+            return;
+        }
+
+        Mail mail = new Mail(senderUUID, senderName, recipientUUID, messageContent);
+
+        // Mettre à jour le cache
+        cachedMails.add(0, mail);
+        cachedMails.sort(Comparator.comparingLong(Mail::getTimestamp).reversed());
+        if (maxMails > 0 && cachedMails.size() > maxMails) { // S'assurer de ne pas dépasser la limite dans le cache aussi
+            cachedMails.remove(cachedMails.size() - 1);
+        }
+
+        if ("sqlite".equalsIgnoreCase(configManager.getStorageType()) && databaseManager != null) {
+            databaseManager.saveMailAsync(mail);
+        } else {
+            savePlayerDataToFile(recipientUUID, cachedMails);
+        }
+
+        Player recipientOnline = Bukkit.getPlayer(recipientUUID);
+        if (recipientOnline != null && recipientOnline.isOnline()) {
+            recipientOnline.sendMessage(configManager.getMessage("mail_received_notification", "%sender%", senderName));
+            configManager.playSound(recipientOnline, "mail_received");
+        }
+
+        if (onDelivered != null) {
+            onDelivered.run();
+        }
+
+        Player senderOnline = Bukkit.getPlayer(senderUUID);
+        if (senderOnline != null && senderOnline.isOnline()) {
+            senderOnline.sendMessage(configManager.getMessage("mail_sent", "%recipient%", recipientName != null ? recipientName : "Joueur Inconnu"));
+            configManager.playSound(senderOnline, "mail_sent");
+        }
+
+        String spyMessage = configManager.getRawMessage("admin_spy_format",
+            "%sender%", senderName,
+            "%recipient%", recipientName != null ? recipientName : "Inconnu",
+            "%message%", messageContent);
+
+        plugin.getMailSpies().forEach(spyUUID -> {
+            Player spy = Bukkit.getPlayer(spyUUID);
+            if (spy != null && spy.isOnline()) {
+                spy.sendMessage(spyMessage);
+            }
+        });
+
+        releaseIfUnused(recipientUUID);
+    }
+
+    /**
+     * Retire du cache la boîte d'un joueur hors ligne que plus aucun admin ne consulte (destinataire d'un mail,
+     * boîte vue par /shmailadmin view). Toute modification est déjà écrite : rien à sauvegarder.
+     */
+    public void releaseIfUnused(UUID playerUUID) {
+        if (Bukkit.getPlayer(playerUUID) != null) return;
+        GUIManager guiManager = plugin.getGuiManager();
+        if (guiManager != null && guiManager.isViewedByAdmin(playerUUID)) return;
+        mailCache.remove(playerUUID);
     }
 
 
@@ -124,18 +149,22 @@ public class MailManager {
                 savePlayerDataToFile(playerUUID, mails);
             }
         }
+        releaseIfUnused(playerUUID); // réponse remise après le départ de son auteur
     }
 
     // Renommé de deleteAllReadMails
     public void deleteAllMailsForPlayer(UUID playerUUID) {
-        List<Mail> mails = getPlayerMails(playerUUID);
-        if (!mails.isEmpty()) {
+        // Boîte hors cache (/shmailadmin clear d'un joueur hors ligne) : supprimée dans la source sans la charger
+        // sur le thread principal.
+        List<Mail> mails = mailCache.get(playerUUID);
+        if (mails != null && mails.isEmpty()) return;
+        if (mails != null) {
             mails.clear(); // Vider le cache
-            if ("sqlite".equalsIgnoreCase(configManager.getStorageType()) && databaseManager != null) {
-                databaseManager.deleteAllMailsForPlayerAsync(playerUUID);
-            } else {
-                savePlayerDataToFile(playerUUID, mails); // Sauvegarde un fichier YAML vide
-            }
+        }
+        if ("sqlite".equalsIgnoreCase(configManager.getStorageType()) && databaseManager != null) {
+            databaseManager.deleteAllMailsForPlayerAsync(playerUUID);
+        } else if (mails != null || getPlayerDataFile(playerUUID).exists()) {
+            savePlayerDataToFile(playerUUID, new ArrayList<>()); // Sauvegarde un fichier YAML vide
         }
     }
 
@@ -201,13 +230,22 @@ public class MailManager {
         }
     }
 
+    /**
+     * Charge la boîte hors du thread principal si elle n'est pas en cache, puis lance le rappel sur le thread principal.
+     * Le cache fait foi : toute modification y passe avant d'être écrite (en asynchrone pour SQLite). Le relire
+     * par-dessus pouvait rendre une liste sans un envoi ou avec un mail supprimé pas encore écrits, et en YAML la
+     * sauvegarde suivante effaçait alors le mail reçu.
+     */
     public void loadPlayerDataAsync(UUID playerUUID, Runnable onLoadedCallback) {
+        if (mailCache.containsKey(playerUUID) && Bukkit.isPrimaryThread()) {
+            if (onLoadedCallback != null) onLoadedCallback.run();
+            return;
+        }
         new BukkitRunnable() {
             @Override
             public void run() {
-                List<Mail> mails = loadPlayerDataFromSource(playerUUID);
-                mailCache.put(playerUUID, mails);
-                if (onLoadedCallback != null) {
+                getPlayerMails(playerUUID);
+                if (onLoadedCallback != null && plugin.isEnabled()) {
                     new BukkitRunnable() {
                         @Override
                         public void run() {

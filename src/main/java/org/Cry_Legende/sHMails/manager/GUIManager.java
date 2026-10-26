@@ -10,10 +10,12 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -42,10 +44,21 @@ public class GUIManager {
     }
 
     /**
-     * @param reload true : relit les mails depuis la source avant d'afficher (ouverture, changement de page) ;
-     *               false : affiche le cache tel quel. À utiliser juste après une suppression : le cache est déjà à jour,
-     *               alors que la suppression en base part dans une tâche asynchrone indépendante, et une relecture
-     *               lancée en même temps peut la devancer, rendre l'ancienne liste et réafficher le mail supprimé.
+     * Menus de la boîte aux lettres : reconnus par leur porteur, sans comparer les titres à chaque clic du serveur.
+     */
+    public static final class MailboxHolder implements InventoryHolder {
+        private Inventory inventory;
+
+        @Override
+        public @NotNull Inventory getInventory() {
+            return inventory;
+        }
+    }
+
+    /**
+     * @param reload true : charge les mails hors du thread principal s'ils ne sont pas encore en cache (ouverture,
+     *               changement de page) ; false : affiche le cache tel quel (juste après une suppression).
+     *               Le cache n'est jamais relu par-dessus : il fait foi (voir MailManager#loadPlayerDataAsync).
      */
     public void openMailboxGUI(Player viewer, UUID mailOwnerUUID, int page, boolean reload) {
         OfflinePlayer mailOwner = Bukkit.getOfflinePlayer(mailOwnerUUID);
@@ -64,10 +77,11 @@ public class GUIManager {
                 viewer.sendMessage(configManager.getMessage("no_mails"));
             }
 
-            if (!viewer.getUniqueId().equals(mailOwnerUUID)) {
-                viewingMailboxOwner.put(viewer.getUniqueId(), mailOwnerUUID);
-            } else {
-                viewingMailboxOwner.remove(viewer.getUniqueId());
+            UUID previousOwner = !viewer.getUniqueId().equals(mailOwnerUUID)
+                ? viewingMailboxOwner.put(viewer.getUniqueId(), mailOwnerUUID)
+                : viewingMailboxOwner.remove(viewer.getUniqueId());
+            if (previousOwner != null && !previousOwner.equals(mailOwnerUUID)) {
+                mailManager.releaseIfUnused(previousOwner);
             }
 
             List<Integer> mailSlots = configManager.getMailSlots();
@@ -89,7 +103,9 @@ public class GUIManager {
                 title = configManager.getGuiTitle(finalPage, totalPages);
             }
 
-            Inventory gui = Bukkit.createInventory(viewer, configManager.getGuiSize(), title);
+            MailboxHolder holder = new MailboxHolder();
+            Inventory gui = Bukkit.createInventory(holder, configManager.getGuiSize(), title);
+            holder.inventory = gui;
 
             if (configManager.isFillerEnabled()) {
                 Material fillerMat = configManager.getFillerMaterial();
@@ -268,6 +284,14 @@ public class GUIManager {
 
     public void clearViewerContext(UUID viewerId) {
         currentPlayerPages.remove(viewerId);
-        viewingMailboxOwner.remove(viewerId);
+        UUID owner = viewingMailboxOwner.remove(viewerId);
+        if (owner != null) {
+            // Boîte d'un autre joueur consultée par un admin : libérée du cache si plus personne ne s'en sert.
+            mailManager.releaseIfUnused(owner);
+        }
+    }
+
+    public boolean isViewedByAdmin(UUID mailOwnerUUID) {
+        return viewingMailboxOwner.containsValue(mailOwnerUUID);
     }
 }

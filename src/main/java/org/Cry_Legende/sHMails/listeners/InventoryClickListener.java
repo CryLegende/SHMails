@@ -15,9 +15,9 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -40,49 +40,36 @@ public class InventoryClickListener implements Listener {
         this.guiManager = plugin.getGuiManager();
     }
 
-    @EventHandler
-    public void onInventoryClose(InventoryCloseEvent event) {
-        Player player = (Player) event.getPlayer();
-        String inventoryTitle = event.getView().getTitle();
-
-        String expectedMailboxTitleStart = configManager.getGuiTitle(1, 1).substring(0, configManager.getGuiTitle(1, 1).indexOf("(")).trim();
-        String expectedAdminTitleStart = configManager.getAdminGuiTitlePrefix().trim();
-
-        if (inventoryTitle.startsWith(expectedMailboxTitleStart) || inventoryTitle.startsWith(expectedAdminTitleStart)) {
-            // Ne pas jouer le son de fermeture si un autre inventaire SHMail est ouvert immédiatement (ex, changement de page)
-            // C'est géré par le son d'ouverture du nouveau GUI.
-            // Le clear du contexte se fait au clic sur "fermer" ou à la déconnexion.
-            // configManager.playSound(player, "gui_close"); // Ce son est maintenant joué au clic sur le bouton fermer
-        }
-    }
+    // Le son de fermeture est joué au clic sur le bouton fermer ; le contexte est vidé à ce clic ou à la déconnexion.
 
     // Un item glissé dans la boîte aux lettres disparaîtrait à la fermeture du menu.
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
-        if (isMailGui(event.getView().getTitle())) {
+        if (isMailGui(event.getView())) {
             event.setCancelled(true);
         }
     }
 
-    private boolean isMailGui(String inventoryTitle) {
-        String expectedMailboxTitleStart = configManager.getGuiTitle(1, 1).substring(0, configManager.getGuiTitle(1, 1).indexOf("(")).trim();
-        String expectedAdminTitleStart = configManager.getAdminGuiTitlePrefix().trim();
-        return inventoryTitle.startsWith(expectedMailboxTitleStart) || inventoryTitle.startsWith(expectedAdminTitleStart);
+    // Reconnu par le porteur du menu : la comparaison de titres recolorait la config à chaque clic du serveur
+    // et plantait (indexOf("(") = -1) si gui.title n'avait pas de parenthèse.
+    private static boolean isMailGui(InventoryView view) {
+        return view.getTopInventory().getHolder(false) instanceof GUIManager.MailboxHolder;
     }
 
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player)) return;
-        Player player = (Player) event.getWhoClicked();
+        if (!(event.getWhoClicked() instanceof Player player)) return;
         ItemStack clickedItem = event.getCurrentItem();
         Inventory clickedInventory = event.getClickedInventory();
 
-        if (isMailGui(event.getView().getTitle())) {
+        if (isMailGui(event.getView())) {
             // Annulé avant le test de case vide : un item posé dans le menu (clic ou touche numérique)
             // disparaîtrait à sa fermeture.
             event.setCancelled(true);
-            if (clickedInventory == null || clickedItem == null || clickedItem.getType() == Material.AIR) return;
+            // Les boutons ne sont que dans le menu : un item homonyme de l'inventaire du joueur ne déclenche rien.
+            if (clickedInventory == null || clickedInventory != event.getView().getTopInventory()) return;
+            if (clickedItem == null || clickedItem.getType() == Material.AIR) return;
 
             UUID mailOwnerUUID = guiManager.viewingMailboxOwner.getOrDefault(player.getUniqueId(), player.getUniqueId());
             int currentPage = guiManager.currentPlayerPages.getOrDefault(player.getUniqueId(), 1);

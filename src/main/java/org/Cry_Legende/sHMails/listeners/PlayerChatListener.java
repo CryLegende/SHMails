@@ -41,26 +41,36 @@ public class PlayerChatListener implements Listener {
             plugin.replyingToSenderUUID.remove(playerId);
             plugin.replyingToSenderName.remove(playerId);
 
-            if (messageContent.equalsIgnoreCase("cancel") || messageContent.equalsIgnoreCase("annuler")) {
-                player.sendMessage(configManager.getMessage("reply_cancelled"));
-                configManager.playSound(player, "reply_mode_cancel");
-                return;
-            }
-
-            if (originalSenderUUID == null || originalSenderName == null) {
-                player.sendMessage(configManager.getMessage("error_occurred")); // Erreur interne
-                configManager.playSound(player, "action_error");
-                return;
-            }
-
-            // Envoyer le nouveau mail (la réponse)
-            mailManager.sendMail(playerId, player.getName(), originalSenderUUID, messageContent);
-
-            // Supprimer le mail original auquel on a répondu (de la boîte de l'utilisateur actuel)
-            mailManager.deleteMail(playerId, originalMailId); // playerId est le propriétaire du mail original
-
-            player.sendMessage(configManager.getMessage("reply_message_sent", "%recipient%", originalSenderName));
-            // Le son "mail_sent" est déjà joué par mailManager.sendMail
+            // Thread du chat : la suite (cache des mails, sons) se fait sur le thread principal.
+            plugin.getServer().getScheduler().runTask(plugin, () ->
+                handleReply(player, messageContent, originalMailId, originalSenderUUID, originalSenderName));
         }
+    }
+
+    private void handleReply(Player player, String messageContent, UUID originalMailId, UUID originalSenderUUID, String originalSenderName) {
+        if (!player.isOnline()) return;
+        UUID playerId = player.getUniqueId();
+
+        if (messageContent.equalsIgnoreCase("cancel") || messageContent.equalsIgnoreCase("annuler")) {
+            player.sendMessage(configManager.getMessage("reply_cancelled"));
+            configManager.playSound(player, "reply_mode_cancel");
+            return;
+        }
+
+        if (originalSenderUUID == null || originalSenderName == null) {
+            player.sendMessage(configManager.getMessage("error_occurred")); // Erreur interne
+            configManager.playSound(player, "action_error");
+            return;
+        }
+
+        // Envoyer le nouveau mail (la réponse). Le mail original n'est supprimé (de la boîte de l'utilisateur actuel)
+        // qu'une fois la réponse remise : si la boîte du destinataire est pleine, il reste.
+        mailManager.sendMail(playerId, player.getName(), originalSenderUUID, messageContent, () -> {
+            mailManager.deleteMail(playerId, originalMailId); // playerId est le propriétaire du mail original
+            if (player.isOnline()) {
+                player.sendMessage(configManager.getMessage("reply_message_sent", "%recipient%", originalSenderName));
+            }
+        });
+        // Le son "mail_sent" est déjà joué par mailManager.sendMail
     }
 }
