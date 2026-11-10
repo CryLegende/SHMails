@@ -4,6 +4,7 @@ import org.Cry_Legende.sHMails.SHMails;
 import org.Cry_Legende.sHMails.manager.ConfigManager;
 import org.Cry_Legende.sHMails.manager.GUIManager;
 import org.Cry_Legende.sHMails.manager.MailManager;
+import org.Cry_Legende.sHMails.network.NetworkMails;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -30,7 +31,8 @@ public class PlayerJoinListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onAsyncPlayerPreLogin(AsyncPlayerPreLoginEvent event) {
-        if (event.getLoginResult() == AsyncPlayerPreLoginEvent.Result.ALLOWED) {
+        // En réseau, la boîte est lue à l'arrivée, une fois le départ de l'autre serveur confirmé (voir onPlayerJoin)
+        if (plugin.getNetwork() == null && event.getLoginResult() == AsyncPlayerPreLoginEvent.Result.ALLOWED) {
             mailManager.getPlayerMails(event.getUniqueId()); // Pré-charge dans le cache
         }
     }
@@ -39,9 +41,19 @@ public class PlayerJoinListener implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        NetworkMails network = plugin.getNetwork();
+        if (network != null) {
+            network.joined(player, count -> notifyMails(player, count));
+            return;
+        }
         // Les données devraient être en cache. Si ce n'est pas le cas, MailManager les chargera à la demande.
 
         int mailCount = mailManager.getMailCount(player.getUniqueId()); // Nombre total de mails
+        notifyMails(player, mailCount);
+    }
+
+    /** Notification de connexion : nombre de mails dans la boîte, après le délai de la configuration. */
+    private void notifyMails(Player player, int mailCount) {
         if (configManager.getLoginNotificationDelayTicks() >= 0) {
             new BukkitRunnable() {
                 @Override

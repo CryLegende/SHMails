@@ -24,9 +24,23 @@ Boîte aux lettres en jeu (/mail) : envoi, réponse, notification à la connexio
 
 Utilisé sur : **Opale**.
 
+## Mode réseau
+
+Avec **SHNetwork** installé (et `reseau.actif: true`, valeur par défaut), plusieurs serveurs de jeu partagent les mails :
+
+- les boîtes sont en MariaDB (tables `shmails_mails`, `shmails_boxes`, `shmails_spies`) au lieu de `shmails.db` ou des fichiers YAML. Chaque serveur ne garde en mémoire que les boîtes des joueurs qui s'y trouvent (et celles qu'un admin consulte), jamais plus une copie pour tout le réseau ;
+- à l'arrivée d'un joueur, une fois que l'autre serveur a confirmé sa sauvegarde, sa boîte est lue en base hors du fil principal, puis la notification de connexion est envoyée. La notification est donc renvoyée à chaque changement de serveur (`login_notification_delay_ticks: -1` la coupe) ;
+- `/mail <joueur> <message>` cherche le destinataire sur tout le réseau (connecté ailleurs, déjà venu sur ce serveur, ou registre des premières connexions `Global.sh_track_firstseen` de SHPlayerTrack) au lieu du fichier de joueur de ce serveur ;
+- un mail est déposé en base sous le verrou de la boîte du destinataire, qui compte `max_mails_per_player` : deux serveurs qui écrivent en même temps ne dépassent jamais la limite. Le bus (`reseau.canal`) prévient ensuite les autres serveurs : celui du destinataire le notifie une seule fois et met sa boîte à jour, tous préviennent leurs espions ;
+- supprimer un mail ou une boîte (le joueur, ou `/shmailadmin clear`) écrit en base, puis prévient les autres serveurs qui relisent la boîte qu'ils ont en mémoire ;
+- l'espionnage (`/shmailadmin spy`) est écrit en base et suit l'admin d'un serveur à l'autre, jusqu'à ce qu'il le coupe ; `spies.yml` n'est plus utilisé ;
+- `/shmailadmin import` (permission `shmails.admin.import`, console comprise) reprend en base les mails (SQLite ou YAML selon `storage_type`) et les espions de `spies.yml` du serveur où on la lance. À faire une seule fois, sur le serveur qui a les mails ; un mail déjà en base (même identifiant) n'est pas dupliqué, la commande peut être relancée.
+
+Sans SHNetwork, ou sans les clés `reseau` dans la configuration, le plugin se comporte comme avant : SQLite ou YAML local, `spies.yml`. Si la base est injoignable au démarrage, le plugin retombe sur le stockage local. Les tables se créent toutes seules au démarrage, ou à la main avec `sql/schema.sql`.
+
 ## Dépendances
 
-- Optionnelles : `ViaVersion` (version du client pour choisir dialogue ou chat ; sans lui tous les clients sont considérés compatibles)
+- Optionnelles : `ViaVersion` (version du client pour choisir dialogue ou chat ; sans lui tous les clients sont considérés compatibles), `SHNetwork` (mode réseau)
 
 ## Commandes
 
@@ -47,6 +61,7 @@ Utilisé sur : **Opale**.
 | `shmails.admin.spy` | Permet d'espionner les mails envoyés. | `op` |
 | `shmails.admin.reload` | Permet de recharger la configuration du plugin. | `op` |
 | `shmails.admin.clear` | Permet de supprimer les mails d'un joueur via commande admin. | `op` |
+| `shmails.admin.import` | Mode réseau, permet de reprendre en base partagée les mails de ce serveur. | `op` |
 
 ## Configuration
 
@@ -54,7 +69,8 @@ Fichiers par défaut repris du serveur (secrets remplacés par `CHANGE_ME`). Cli
 
 <pre>
 plugins/SHMails/
-└── <a href="src/main/resources/config.yml">config.yml</a>      dialogues.actif, dialogues.min-protocol (771 = 1.21.6), dialogues.expiration-secondes, dialogues.reponse (textes)
+└── <a href="src/main/resources/config.yml">config.yml</a>      dialogues.actif, dialogues.min-protocol (771 = 1.21.6), dialogues.expiration-secondes, dialogues.reponse (textes),
+                    reseau (actif, attente-max-secondes, canal, table-premieres-connexions, base-de-donnees)
 </pre>
 
 ## Compilation

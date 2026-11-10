@@ -1,3 +1,27 @@
+# ======================================================================== #
+# SHMails
+#
+# Plugin : boîte aux lettres en jeu. Un joueur écrit à un autre, connecté ou non, qui retrouve ses mails dans un menu,
+# peut y répondre ou les supprimer ; une notification est envoyée à la connexion et à chaque nouveau mail. Avec
+# SHNetwork, les boîtes sont dans une base partagée et un mail arrive où que soit le destinataire (voir la section
+# 'reseau' en bas du fichier).
+#
+# Commandes :
+#   /mail                    Ouvre votre boîte (alias : /mails, /shmails).
+#   /mail <joueur> <message> Envoie un mail.
+#   /shmailadmin view <joueur>    Consulte la boîte d'un joueur (alias : /shma).
+#   /shmailadmin clear <joueur>   Supprime tous les mails d'un joueur.
+#   /shmailadmin spy              Active ou coupe l'espionnage des mails envoyés.
+#   /shmailadmin reload           Recharge la configuration.
+#   /shmailadmin import           Mode réseau : reprend en base les mails et espions de ce serveur (une fois).
+#
+# Permissions :
+#   shmails.use, shmails.send                        Ouvrir sa boîte, envoyer un mail (par défaut : tous).
+#   shmails.admin                                    Utiliser /shmailadmin.
+#   shmails.admin.view, .view.interact, .spy, .reload, .clear, .import   Sous-commandes de /shmailadmin.
+#
+# ======================================================================== #
+
 # SHMails Configuration v1.2.0
 
 # Préfixe utilisé dans les messages du plugin
@@ -54,6 +78,10 @@ messages:
   must_be_player: "&7&l« &c&lSH &8&l» &7Cette commande doit être exécutée par un joueur."
   no_permission: "&7&l« &c&lSH &8&l» &7Vous n'avez pas la permission d'exécuter cette action/commande."
   error_occurred: "&7&l« &c&lSH &8&l» &7Une erreur est survenue. Veuillez contacter un administrateur."
+  admin_import_unavailable: "&7&l« &c&lSH &8&l» &7Le mode réseau n'est pas actif sur ce serveur : rien à reprendre."
+  admin_import_running: "&7&l« &6&lSH &8&l» &7Une reprise est &6déjà en cours&7."
+  admin_import_start: "&7&l« &e&lSH &8&l» &7Reprise des mails de ce serveur en base&7..."
+  admin_import_done: "&7&l« &a&lSH &8&l» &a%lus% &7mails lus, &a%ajoutes% &7ajoutés en base (les autres y étaient déjà), &a%espions% &7espions."
   error_mail_not_found: "&7&l« &c&lSH &8&l» &7Erreur: Ce mail n'existe plus ou n'a pas pu être trouvé."
   error_cannot_interact_adminview: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas interagir avec les mails en mode spectateur admin sans la permission &c'shmails.admin.view.interact'&7."
 
@@ -153,3 +181,25 @@ gui:
     enabled: true
     material: "BLACK_STAINED_GLASS_PANE"
     name: " "
+
+# Mode réseau. Actif seulement si SHNetwork est installé et 'actif' vaut true : les mails et les espions sont alors
+# dans la base partagée (tables shmails_mails, shmails_boxes, shmails_spies) au lieu du stockage ci-dessus, et un mail
+# est remis au destinataire sur le serveur où il se trouve. Sans SHNetwork, rien de ceci n'est utilisé.
+# Demande un redémarrage. Les mails et espions existants sont repris avec /shmailadmin import.
+reseau:
+  actif: true
+  # Durée maximale, en secondes, pendant laquelle on attend que l'autre serveur ait fini de sauvegarder
+  # le joueur avant de lire sa boîte
+  attente-max-secondes: 10
+  # Sujet du bus SHNetwork qui prévient les serveurs d'un nouveau mail ou d'une boîte modifiée
+  canal: shmails
+  # Registre des premières connexions (tenu par SHPlayerTrack) : un destinataire jamais venu sur ce serveur y est
+  # cherché avant d'être déclaré introuvable. Vide pour ne pas le consulter.
+  table-premieres-connexions: "Global.sh_track_firstseen"
+  base-de-donnees:
+    url: "jdbc:mariadb://127.0.0.1:3306/bo_net"
+    utilisateur: shmails
+    mot-de-passe: CHANGE_ME
+    # Délai maximal de connexion et de réponse de la base, en millisecondes. Une base qui ne répond pas
+    # fait échouer l'ouverture de la boîte et l'envoi d'un mail (message d'erreur).
+    delai-ms: 3000

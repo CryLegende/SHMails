@@ -317,7 +317,7 @@ public final class ReplyDialogs {
         MailManager mails = plugin.getMailManager();
         // Même suite qu'en mode chat : envoi, puis suppression du mail original et confirmation une fois la réponse
         // remise (pas si la boîte du destinataire est pleine).
-        mails.sendMail(uuid, player.getName(), state.senderUuid(), content, () -> {
+        mails.sendMail(uuid, player.getName(), state.senderUuid(), state.senderName(), content, () -> {
             mails.deleteMail(uuid, state.mailId());
             if (player.isOnline()) {
                 player.sendMessage(config.getMessage("reply_message_sent", "%recipient%", state.senderName()));

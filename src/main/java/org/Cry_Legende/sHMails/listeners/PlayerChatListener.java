@@ -65,7 +65,7 @@ public class PlayerChatListener implements Listener {
 
         // Envoyer le nouveau mail (la réponse). Le mail original n'est supprimé (de la boîte de l'utilisateur actuel)
         // qu'une fois la réponse remise : si la boîte du destinataire est pleine, il reste.
-        mailManager.sendMail(playerId, player.getName(), originalSenderUUID, messageContent, () -> {
+        mailManager.sendMail(playerId, player.getName(), originalSenderUUID, originalSenderName, messageContent, () -> {
             mailManager.deleteMail(playerId, originalMailId); // playerId est le propriétaire du mail original
             if (player.isOnline()) {
                 player.sendMessage(configManager.getMessage("reply_message_sent", "%recipient%", originalSenderName));

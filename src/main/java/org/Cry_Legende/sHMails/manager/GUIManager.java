@@ -62,7 +62,8 @@ public class GUIManager {
      */
     public void openMailboxGUI(Player viewer, UUID mailOwnerUUID, int page, boolean reload) {
         OfflinePlayer mailOwner = Bukkit.getOfflinePlayer(mailOwnerUUID);
-        if (!mailOwner.hasPlayedBefore() && !mailOwner.isOnline()) {
+        // En réseau, le propriétaire peut n'être jamais venu sur ce serveur : la commande qui a choisi la boîte l'a déjà vérifié
+        if (plugin.getNetwork() == null && !mailOwner.hasPlayedBefore() && !mailOwner.isOnline()) {
             viewer.sendMessage(configManager.getMessage("player_not_found", "%player%", mailOwnerUUID.toString()));
             configManager.playSound(viewer, "action_error");
             return;
@@ -97,7 +98,8 @@ public class GUIManager {
 
             String title;
             if (!viewer.getUniqueId().equals(mailOwnerUUID)) {
-                title = configManager.getAdminGuiTitlePrefix() + (mailOwner.getName() != null ? mailOwner.getName() : "Inconnu") +
+                String ownerName = plugin.getNetwork() != null ? plugin.getNetwork().nameOf(mailOwnerUUID, null) : mailOwner.getName();
+                title = configManager.getAdminGuiTitlePrefix() + (ownerName != null ? ownerName : "Inconnu") +
                     " (" + finalPage + "/" + totalPages + ")";
             } else {
                 title = configManager.getGuiTitle(finalPage, totalPages);
@@ -141,7 +143,10 @@ public class GUIManager {
             }.runTask(plugin);
         };
         if (reload) {
-            mailManager.loadPlayerDataAsync(mailOwnerUUID, render);
+            mailManager.loadPlayerDataAsync(mailOwnerUUID, render, () -> {
+                viewer.sendMessage(configManager.getMessage("error_occurred"));
+                configManager.playSound(viewer, "action_error");
+            });
         } else {
             render.run(); // thread principal (clic) : le menu est ouvert au tick suivant par le runTask ci-dessus
         }

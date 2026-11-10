@@ -4,6 +4,7 @@ import org.Cry_Legende.sHMails.SHMails;
 import org.Cry_Legende.sHMails.manager.ConfigManager;
 import org.Cry_Legende.sHMails.manager.GUIManager;
 import org.Cry_Legende.sHMails.manager.MailManager;
+import org.Cry_Legende.sHMails.network.NetworkMails;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
@@ -59,6 +60,12 @@ public class MailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
+            NetworkMails network = plugin.getNetwork();
+            if (network != null) {
+                sendOnNetwork(player, network, args);
+                return true;
+            }
+
             OfflinePlayer recipient = Bukkit.getOfflinePlayer(args[0]); // getOfflinePlayer est OK ici
             if (!recipient.hasPlayedBefore() && !recipient.isOnline()) {
                 player.sendMessage(configManager.getMessage("player_not_found", "%player%", args[0]));
@@ -89,6 +96,34 @@ public class MailCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(configManager.getMessage("mail_usage"));
         configManager.playSound(player, "action_error");
         return true;
+    }
+
+    /**
+     * Mode réseau : le destinataire est cherché sur tout le réseau (connecté ailleurs, déjà venu, registre des premières
+     * connexions) au lieu du fichier de joueur de ce serveur, qui ne connaît pas ceux de l'autre.
+     */
+    private void sendOnNetwork(Player player, NetworkMails network, String[] args) {
+        StringBuilder messageBuilder = new StringBuilder();
+        for (int i = 1; i < args.length; i++) {
+            messageBuilder.append(args[i]).append(i == args.length - 1 ? "" : " ");
+        }
+        String messageContent = messageBuilder.toString();
+        network.resolve(args[0], known -> {
+            if (!player.isOnline()) {
+                return;
+            }
+            if (known == null) {
+                player.sendMessage(configManager.getMessage("player_not_found", "%player%", args[0]));
+                configManager.playSound(player, "action_error");
+                return;
+            }
+            if (known.uuid().equals(player.getUniqueId())) {
+                player.sendMessage(configManager.getMessage("cannot_mail_self"));
+                configManager.playSound(player, "action_error");
+                return;
+            }
+            mailManager.sendMail(player.getUniqueId(), player.getName(), known.uuid(), known.name(), messageContent, null);
+        });
     }
 
     @Nullable

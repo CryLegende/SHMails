@@ -2,6 +2,7 @@ package org.Cry_Legende.sHMails.manager;
 
 import org.Cry_Legende.sHMails.SHMails;
 import org.Cry_Legende.sHMails.model.Mail;
+import org.Cry_Legende.sHMails.network.NetworkMails;
 import org.Cry_Legende.sHMails.utils.ChatUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -25,6 +26,8 @@ public class MailManager {
     private final DatabaseManager databaseManager;
     private final Map<UUID, List<Mail>> mailCache = new ConcurrentHashMap<>();
     private final SimpleDateFormat dateFormat;
+    // Non nul seulement avec SHNetwork : les boîtes sont alors dans la base partagée et mailCache n'est pas utilisé
+    private NetworkMails network;
 
     public MailManager(SHMails plugin) {
         this.plugin = plugin;
@@ -33,12 +36,35 @@ public class MailManager {
         this.dateFormat = new SimpleDateFormat(configManager.getDateFormat());
     }
 
+    public void setNetwork(NetworkMails network) {
+        this.network = network;
+    }
+
+    /**
+     * Boîte du joueur. En mode réseau, la boîte en mémoire : vide tant qu'elle n'est pas chargée depuis la base
+     * (voir {@link #loadPlayerDataAsync}), jamais de lecture en base sur le fil appelant.
+     */
     public List<Mail> getPlayerMails(UUID playerUUID) {
+        if (network != null) {
+            return network.mails(playerUUID);
+        }
         return mailCache.computeIfAbsent(playerUUID, this::loadPlayerDataFromSource);
     }
 
     public void sendMail(UUID senderUUID, String senderName, UUID recipientUUID, String messageContent) {
         sendMail(senderUUID, senderName, recipientUUID, messageContent, null);
+    }
+
+    /**
+     * @param recipientName pseudo exact du destinataire s'il est connu de l'appelant (utilisé en mode réseau pour les
+     *                      messages quand ce serveur ne connaît pas le joueur), sinon null
+     */
+    public void sendMail(UUID senderUUID, String senderName, UUID recipientUUID, String recipientName, String messageContent, Runnable onDelivered) {
+        if (network != null) {
+            network.send(senderUUID, senderName, recipientUUID, recipientName, messageContent, onDelivered);
+            return;
+        }
+        sendMail(senderUUID, senderName, recipientUUID, messageContent, onDelivered);
     }
 
     /**
@@ -48,6 +74,10 @@ public class MailManager {
      * @param onDelivered lancé sur le thread principal une fois le mail remis, jamais si la boîte est pleine (peut être null)
      */
     public void sendMail(UUID senderUUID, String senderName, UUID recipientUUID, String messageContent, Runnable onDelivered) {
+        if (network != null) {
+            network.send(senderUUID, senderName, recipientUUID, null, messageContent, onDelivered);
+            return;
+        }
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -135,11 +165,20 @@ public class MailManager {
         if (Bukkit.getPlayer(playerUUID) != null) return;
         GUIManager guiManager = plugin.getGuiManager();
         if (guiManager != null && guiManager.isViewedByAdmin(playerUUID)) return;
+        if (network != null) {
+            network.drop(playerUUID);
+            return;
+        }
         mailCache.remove(playerUUID);
     }
 
 
     public void deleteMail(UUID playerUUID, UUID mailId) {
+        if (network != null) {
+            network.deleteMail(playerUUID, mailId);
+            releaseIfUnused(playerUUID); // réponse remise après le départ de son auteur
+            return;
+        }
         List<Mail> mails = getPlayerMails(playerUUID); // Récupère du cache
         boolean removed = mails.removeIf(mail -> mail.getMailId().equals(mailId));
         if (removed) {
@@ -154,6 +193,10 @@ public class MailManager {
 
     // Renommé de deleteAllReadMails
     public void deleteAllMailsForPlayer(UUID playerUUID) {
+        if (network != null) {
+            network.clearBox(playerUUID);
+            return;
+        }
         // Boîte hors cache (/shmailadmin clear d'un joueur hors ligne) : supprimée dans la source sans la charger
         // sur le thread principal.
         List<Mail> mails = mailCache.get(playerUUID);
@@ -237,6 +280,19 @@ public class MailManager {
      * sauvegarde suivante effaçait alors le mail reçu.
      */
     public void loadPlayerDataAsync(UUID playerUUID, Runnable onLoadedCallback) {
+        loadPlayerDataAsync(playerUUID, onLoadedCallback, null);
+    }
+
+    /**
+     * @param onFailedCallback lancé sur le thread principal si la base partagée ne répond pas (mode réseau seulement ;
+     *                         peut être null)
+     */
+    public void loadPlayerDataAsync(UUID playerUUID, Runnable onLoadedCallback, Runnable onFailedCallback) {
+        if (network != null) {
+            network.ensureLoaded(playerUUID, onLoadedCallback != null ? onLoadedCallback : () -> {
+            }, onFailedCallback);
+            return;
+        }
         if (mailCache.containsKey(playerUUID) && Bukkit.isPrimaryThread()) {
             if (onLoadedCallback != null) onLoadedCallback.run();
             return;
@@ -274,10 +330,37 @@ public class MailManager {
     }
 
     public void unloadPlayerData(UUID playerUUID) {
+        if (network != null) {
+            network.drop(playerUUID);
+            return;
+        }
         if ("yaml".equalsIgnoreCase(configManager.getStorageType())) {
             savePlayerData(playerUUID);
         }
         mailCache.remove(playerUUID);
+    }
+
+    /**
+     * Tous les mails du stockage local de ce serveur (SQLite ou fichiers YAML), pour la reprise en base partagée.
+     * À appeler hors du fil principal.
+     */
+    public List<Mail> readAllLocalMails() {
+        if ("sqlite".equalsIgnoreCase(configManager.getStorageType()) && databaseManager != null) {
+            return databaseManager.loadAllMails();
+        }
+        List<Mail> all = new ArrayList<>();
+        File[] files = new File(plugin.getDataFolder(), "data").listFiles((dir, name) -> name.endsWith(".yml"));
+        if (files != null) {
+            for (File file : files) {
+                try {
+                    UUID owner = UUID.fromString(file.getName().substring(0, file.getName().length() - ".yml".length()));
+                    all.addAll(loadPlayerDataFromFile(owner));
+                } catch (IllegalArgumentException notAPlayer) {
+                    // fichier qui n'est pas une boîte
+                }
+            }
+        }
+        return all;
     }
 
     private File getPlayerDataFile(UUID playerUUID) {

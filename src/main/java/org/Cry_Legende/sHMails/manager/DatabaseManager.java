@@ -98,6 +98,28 @@ public class DatabaseManager {
         return mails;
     }
 
+    /** Tous les mails de la table, pour la reprise en base partagée (mode réseau). Hors du fil principal. */
+    public List<Mail> loadAllMails() {
+        List<Mail> mails = new ArrayList<>();
+        String sql = "SELECT * FROM " + TABLE_NAME;
+        try (Connection conn = createConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                mails.add(new Mail(
+                    UUID.fromString(rs.getString("mail_id")),
+                    UUID.fromString(rs.getString("sender_uuid")),
+                    rs.getString("sender_name"),
+                    UUID.fromString(rs.getString("recipient_uuid")),
+                    rs.getString("message"),
+                    rs.getLong("timestamp")
+                ));
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Error loading all mails from SQLite: " + e.getMessage());
+        }
+        return mails;
+    }
+
     public void deleteMailAsync(UUID mailId) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             String sql = "DELETE FROM " + TABLE_NAME + " WHERE mail_id = ?";
