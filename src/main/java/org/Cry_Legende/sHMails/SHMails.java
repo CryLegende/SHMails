@@ -16,6 +16,8 @@ import org.Cry_Legende.sHMails.network.NetworkLink;
 import org.Cry_Legende.sHMails.network.NetworkMails;
 import org.Cry_Legende.sHMails.network.ShNetworkLink;
 import org.bukkit.Bukkit;
+import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -23,6 +25,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
@@ -131,9 +134,46 @@ public class SHMails extends JavaPlugin {
         getCommand("mail").setExecutor(mailCommandExecutor);
         getCommand("mail").setTabCompleter(mailCommandExecutor);
 
-        AdminMailCommand adminMailCommandExecutor = new AdminMailCommand(this);
-        getCommand("shmailadmin").setExecutor(adminMailCommandExecutor);
-        getCommand("shmailadmin").setTabCompleter(adminMailCommandExecutor);
+        // /shmails : racine d'administration ; sans droit admin, elle se comporte comme /mail
+        AdminMailCommand adminMailCommandExecutor = new AdminMailCommand(this, mailCommandExecutor);
+        getCommand("shmails").setExecutor(adminMailCommandExecutor);
+        getCommand("shmails").setTabCompleter(adminMailCommandExecutor);
+    }
+
+    /**
+     * Relit config.yml et messages.yml, reprend date_format et réapplique tout ce qui est lu à l'usage (messages,
+     * sons, menu, dialogues, limites). Si un fichier est invalide, rien n'est appliqué : l'ancienne configuration
+     * reste en place et l'expéditeur reçoit le fichier et l'erreur. Ne touche ni aux mails, ni à spies.yml, ni à la
+     * base ; storage_type et la section reseau demandent un redémarrage.
+     *
+     * @return vrai si tout a été rechargé
+     */
+    public boolean reload(CommandSender sender) {
+        saveDefaultConfig();
+        YamlConfiguration newMessages = new YamlConfiguration();
+        YamlConfiguration newConfig = new YamlConfiguration();
+        String current = ConfigManager.MESSAGES_FILE;
+        try {
+            newMessages.load(new File(getDataFolder(), ConfigManager.MESSAGES_FILE));
+            current = "config.yml";
+            newConfig.load(new File(getDataFolder(), "config.yml"));
+            try {
+                new SimpleDateFormat(newConfig.getString("date_format", "dd/MM/yyyy 'à' HH:mm"));
+            } catch (IllegalArgumentException e) {
+                throw new InvalidConfigurationException("date_format : " + e.getMessage());
+            }
+        } catch (IOException | InvalidConfigurationException e) {
+            getLogger().severe("Reload cancelled, " + current + " is invalid: " + e.getMessage());
+            String text = String.valueOf(e.getMessage()).strip();
+            int end = text.indexOf('\n');
+            String error = end < 0 ? text : text.substring(0, end).strip();
+            sender.sendMessage(configManager.getMessage("admin_reload_failed", "%file%", current,
+                "%error%", error.length() > 160 ? error.substring(0, 160) + "..." : error));
+            return false;
+        }
+        configManager.reload(newMessages);
+        mailManager.reloadDateFormat();
+        return true;
     }
 
     private void registerListeners() {

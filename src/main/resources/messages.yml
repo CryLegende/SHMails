@@ -1,0 +1,43 @@
+# Messages de SHMails. Codes couleur avec '&'.
+# Variables : %player%, %sender%, %recipient%, %count%, %current%, %max%, %message%, %lus%, %ajoutes%, %espions%,
+# %subcommands% (admin_usage : sous-commandes autorisées), %file% et %error% (admin_reload_failed), selon le message.
+# Le préfixe du plugin (plugin_prefix) est dans config.yml.
+
+mail_sent: "&7&l« &a&lSH &8&l» &7Mail envoyé à &a%recipient%&7 !"
+mail_received_notification: "&7&l« &e&lSH &8&l» &7Vous avez reçu un nouveau mail de &e%sender%&7 !"
+mail_received_while_offline: "&7&l« &e&lSH &8&l» &7Vous avez &e%count% &7mail(s) dans votre boîte ! Tapez &b/mail&7 pour les lire."
+no_new_mails_on_login: "&7&l« &e&lSH &8&l» &7Vous n'avez pas de nouveau mail."
+player_not_found: "&7&l« &c&lSH &8&l» &7Le joueur &c%player%&7 n'a pas été trouvé ou n'a jamais joué sur le serveur."
+mailbox_full_self: "&7&l« &6&lSH &8&l» &7Votre boîte mail est pleine (&6%current%/%max%&7). Supprimez des mails pour en recevoir de nouveaux."
+recipient_mailbox_full: "&7&l« &6&lSH &8&l» &7La boîte mail de &6%recipient%&7 est pleine (&6%current%/%max%&7). Il ne peut pas recevoir votre mail."
+cannot_mail_self: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas vous envoyer de mail à vous-même."
+mail_deleted: "&7&l« &a&lSH &8&l» &7Mail supprimé."
+reply_enter_mode: "&7&l« &e&lSH &8&l» &7Vous répondez à &e%sender%&7. Tapez votre message dans le chat. Tapez '&c&ocancel&7' pour annuler."
+reply_message_sent: "&7&l« &a&lSH &8&l» &7Votre réponse à &a%recipient%&7 a été envoyée. Le mail original a été supprimé."
+reply_cancelled: "&7&l« &e&lSH &8&l» &7Mode réponse annulé."
+dialog_expired: "&7&l« &e&lSH &8&l» &7Cette réponse a &eexpiré&7. Cliquez à nouveau sur le mail pour répondre."
+reply_cannot_self: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas répondre à un mail que vous vous êtes envoyé."
+no_mails: "&7&l« &e&lSH &8&l» &7Vous n'avez aucun mail."
+mail_usage: "&7&l« &c&lSH &8&l» &7Usage: &c/mail <joueur> <message>"
+mail_open_gui: "&7&l« &e&lSH &8&l» &7Ouverture de votre boîte mail..."
+admin_spy_on: "&7&l« &a&lSH &8&l» &7Vous espionnez maintenant les mails."
+admin_spy_off: "&7&l« &e&lSH &8&l» &7Vous n'espionnez plus les mails." # Changé en information &e, car c'est un état informatif.
+admin_spy_format: "&5[&dMail SPY&5] &d%sender% &e> &d%recipient% &f&l» &7%message%"
+admin_mails_view_title_prefix: "&9Mails de " # Titre de GUI, pas de préfixe chat standard.
+admin_config_reloaded: "&7&l« &a&lSH &8&l» &7Configuration de SHMails rechargée &aavec succès&7."
+admin_cleared_mails_all: "&7&l« &a&lSH &8&l» &7Tous les mails de &a%player%&7 ont été supprimés."
+admin_view_opening: "&7&l« &e&lSH &8&l» &7Ouverture de la boîte mail de &e%player%&7..."
+must_be_player: "&7&l« &c&lSH &8&l» &7Cette commande doit être exécutée par un joueur."
+no_permission: "&7&l« &c&lSH &8&l» &7Vous n'avez pas la permission d'exécuter cette action/commande."
+error_occurred: "&7&l« &c&lSH &8&l» &7Une erreur est survenue. Veuillez contacter un administrateur."
+admin_usage: "&7&l« &e&lSH &8&l» &7Usage : &e/shmails &7%subcommands%&7. &8(&7/mail pour votre boîte&8)"
+admin_usage_view: "&7&l« &e&lSH &8&l» &7Usage : &e/shmails view <joueur>&7."
+admin_usage_clear: "&7&l« &e&lSH &8&l» &7Usage : &e/shmails clear <joueur>&7."
+admin_reload_note: "&7&l« &e&lSH &8&l» &7Le stockage (&estorage_type&7) et la section &ereseau &7demandent un redémarrage."
+admin_reload_failed: "&7&l« &c&lSH &8&l» &7Rechargement &cannulé&7 : &c%file% &7est invalide (&c%error%&7). L'ancienne configuration reste active."
+admin_import_unavailable: "&7&l« &c&lSH &8&l» &7Le mode réseau n'est pas actif sur ce serveur : rien à reprendre."
+admin_import_running: "&7&l« &6&lSH &8&l» &7Une reprise est &6déjà en cours&7."
+admin_import_start: "&7&l« &e&lSH &8&l» &7Reprise des mails de ce serveur en base&7..."
+admin_import_done: "&7&l« &a&lSH &8&l» &a%lus% &7mails lus, &a%ajoutes% &7ajoutés en base (les autres y étaient déjà), &a%espions% &7espions."
+error_mail_not_found: "&7&l« &c&lSH &8&l» &7Erreur: Ce mail n'existe plus ou n'a pas pu être trouvé."
+error_cannot_interact_adminview: "&7&l« &c&lSH &8&l» &7Vous ne pouvez pas interagir avec les mails en mode spectateur admin sans la permission &c'shmails.admin.view.interact'&7."

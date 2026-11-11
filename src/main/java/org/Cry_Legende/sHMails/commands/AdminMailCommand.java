@@ -17,58 +17,67 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * /shmails (alias shmailadmin, shma) : racine d'administration de SHMails. view, spy, clear, import et reload ont
+ * chacune leur permission shmails.admin.&lt;sous-commande&gt;. Un expéditeur qui n'a aucun droit d'administration
+ * obtient exactement le comportement de /mail, comme quand /shmails n'était qu'un alias de /mail.
+ */
 public class AdminMailCommand implements CommandExecutor, TabCompleter {
+
+    private static final List<String> SUBCOMMANDS = List.of("view", "spy", "clear", "import", "reload");
+    private static final String PERMISSION_PREFIX = "shmails.admin.";
 
     private final SHMails plugin;
     private final ConfigManager configManager;
     private final GUIManager guiManager;
     private final MailManager mailManager;
+    private final MailCommand mailCommand;
 
-
-    public AdminMailCommand(SHMails plugin) {
+    public AdminMailCommand(SHMails plugin, MailCommand mailCommand) {
         this.plugin = plugin;
         this.configManager = plugin.getConfigManager();
         this.guiManager = plugin.getGuiManager();
         this.mailManager = plugin.getMailManager();
+        this.mailCommand = mailCommand;
+    }
+
+    private static boolean can(CommandSender sender, String subCommand) {
+        return sender.hasPermission(PERMISSION_PREFIX + subCommand);
+    }
+
+    /** Vrai si l'expéditeur a au moins un droit d'administration de SHMails. */
+    private static boolean hasAnyAdmin(CommandSender sender) {
+        return SUBCOMMANDS.stream().anyMatch(sub -> can(sender, sub)) || sender.hasPermission("shmails.admin.view.interact");
     }
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        if (!sender.hasPermission("shmails.admin")) {
-            sender.sendMessage(configManager.getMessage("no_permission"));
-            if (sender instanceof Player) configManager.playSound((Player) sender, "action_error");
-            return true;
+        if (!hasAnyAdmin(sender)) {
+            // Comme avant : /shmails était un alias de /mail
+            return mailCommand.onCommand(sender, command, label, args);
         }
 
-        if (args.length == 0) {
-            sendAdminHelp(sender, label);
+        String subCommand = args.length > 0 ? args[0].toLowerCase(Locale.ROOT) : "";
+        if (!SUBCOMMANDS.contains(subCommand) || !can(sender, subCommand)) {
+            sendUsage(sender);
             return true;
         }
-
-        String subCommand = args[0].toLowerCase();
         Player playerSender = (sender instanceof Player) ? (Player) sender : null;
-
 
         switch (subCommand) {
             case "view":
-                // ... (inchangé) ...
-                if (!sender.hasPermission("shmails.admin.view")) {
-                    sender.sendMessage(configManager.getMessage("no_permission"));
-                    if (playerSender != null) configManager.playSound(playerSender, "action_error");
-                    return true;
-                }
                 if (playerSender == null) {
                     sender.sendMessage(configManager.getMessage("must_be_player"));
                     return true;
                 }
                 if (args.length < 2) {
-                    sender.sendMessage(configManager.getPrefix() + "&cUsage: /" + label + " view <joueur>");
-                    if (playerSender != null) configManager.playSound(playerSender, "action_error");
+                    sender.sendMessage(configManager.getMessage("admin_usage_view"));
+                    configManager.playSound(playerSender, "action_error");
                     return true;
                 }
 
@@ -87,7 +96,7 @@ public class AdminMailCommand implements CommandExecutor, TabCompleter {
                 OfflinePlayer targetPlayerView = Bukkit.getOfflinePlayer(args[1]);
                 if (!targetPlayerView.hasPlayedBefore() && !targetPlayerView.isOnline()) {
                     sender.sendMessage(configManager.getMessage("player_not_found", "%player%", args[1]));
-                    if (playerSender != null) configManager.playSound(playerSender, "action_error");
+                    configManager.playSound(playerSender, "action_error");
                     return true;
                 }
                 sender.sendMessage(configManager.getMessage("admin_view_opening", "%player%", targetPlayerView.getName() != null ? targetPlayerView.getName() : "Inconnu"));
@@ -95,50 +104,34 @@ public class AdminMailCommand implements CommandExecutor, TabCompleter {
                 break;
 
             case "spy":
-                if (!sender.hasPermission("shmails.admin.spy")) {
-                    sender.sendMessage(configManager.getMessage("no_permission"));
-                    if (playerSender != null) configManager.playSound(playerSender, "action_error");
-                    return true;
-                }
                 if (playerSender == null) {
                     sender.sendMessage(configManager.getMessage("must_be_player"));
                     return true;
                 }
 
                 UUID spyUUID = playerSender.getUniqueId();
-                if (plugin.isSpying(spyUUID)) { // Utilise la nouvelle méthode
-                    plugin.removeSpy(spyUUID);   // Utilise la nouvelle méthode
+                if (plugin.isSpying(spyUUID)) {
+                    plugin.removeSpy(spyUUID);
                     playerSender.sendMessage(configManager.getMessage("admin_spy_off"));
                 } else {
-                    plugin.addSpy(spyUUID);      // Utilise la nouvelle méthode
+                    plugin.addSpy(spyUUID);
                     playerSender.sendMessage(configManager.getMessage("admin_spy_on"));
                 }
                 configManager.playSound(playerSender, "gui_click_button");
                 break;
 
             case "reload":
-                // ... (inchangé) ...
-                if (!sender.hasPermission("shmails.admin.reload")) {
-                    sender.sendMessage(configManager.getMessage("no_permission"));
-                    if (playerSender != null) configManager.playSound(playerSender, "action_error");
-                    return true;
+                if (plugin.reload(sender)) {
+                    sender.sendMessage(configManager.getMessage("admin_config_reloaded"));
+                    sender.sendMessage(configManager.getMessage("admin_reload_note"));
+                    if (playerSender != null) configManager.playSound(playerSender, "gui_click_button");
+                    plugin.getLogger().info("Configuration reloaded by " + sender.getName());
                 }
-                plugin.loadSpies(); // Recharger les spies en plus de la config principale
-                configManager.reloadConfig();
-                sender.sendMessage(configManager.getMessage("admin_config_reloaded"));
-                if (playerSender != null) configManager.playSound(playerSender, "gui_click_button");
-                plugin.getLogger().info("Configuration and spies reloaded by " + sender.getName());
                 break;
 
             case "clear":
-                // ... (inchangé) ...
-                if (!sender.hasPermission("shmails.admin.clear")) {
-                    sender.sendMessage(configManager.getMessage("no_permission"));
-                    if (playerSender != null) configManager.playSound(playerSender, "action_error");
-                    return true;
-                }
                 if (args.length < 2) {
-                    sender.sendMessage(configManager.getPrefix() + "&cUsage: /" + label + " clear <joueur>");
+                    sender.sendMessage(configManager.getMessage("admin_usage_clear"));
                     if (playerSender != null) configManager.playSound(playerSender, "action_error");
                     return true;
                 }
@@ -169,18 +162,12 @@ public class AdminMailCommand implements CommandExecutor, TabCompleter {
                 if (playerSender != null) configManager.playSound(playerSender, "mail_deleted");
                 break;
 
-
             case "import":
-                if (!sender.hasPermission("shmails.admin.import")) {
-                    sender.sendMessage(configManager.getMessage("no_permission"));
-                    if (playerSender != null) configManager.playSound(playerSender, "action_error");
-                    return true;
-                }
                 importLocalData(sender);
                 break;
 
             default:
-                sendAdminHelp(sender, label);
+                sendUsage(sender);
                 break;
         }
         return true;
@@ -219,32 +206,30 @@ public class AdminMailCommand implements CommandExecutor, TabCompleter {
         });
     }
 
-    private void sendAdminHelp(CommandSender sender, String label) {
-        // ... (inchangé) ...
-        String cmdPrefix = (sender instanceof Player ? "/" : "") + label + " ";
-        sender.sendMessage(configManager.getPrefix() + "&6Commandes d'administration SHMails:");
-        sender.sendMessage(configManager.getPrefix() + "&e" + cmdPrefix + "view <joueur> &7- Voir les mails d'un joueur.");
-        sender.sendMessage(configManager.getPrefix() + "&e" + cmdPrefix + "spy &7- Activer/Désactiver l'espionnage des mails.");
-        sender.sendMessage(configManager.getPrefix() + "&e" + cmdPrefix + "reload &7- Recharger la configuration.");
-        sender.sendMessage(configManager.getPrefix() + "&e" + cmdPrefix + "clear <joueur> &7- Supprimer tous les mails d'un joueur.");
-        sender.sendMessage(configManager.getPrefix() + "&e" + cmdPrefix + "import &7- Mode réseau : reprendre en base les mails de ce serveur.");
+    /** Une seule ligne d'usage, limitée aux sous-commandes que l'expéditeur peut utiliser. */
+    private void sendUsage(CommandSender sender) {
+        List<String> allowed = SUBCOMMANDS.stream().filter(sub -> can(sender, sub)).collect(Collectors.toList());
+        if (allowed.isEmpty()) {
+            sender.sendMessage(configManager.getMessage("no_permission"));
+            return;
+        }
+        sender.sendMessage(configManager.getMessage("admin_usage", "%subcommands%", String.join("|", allowed)));
     }
 
     @Nullable
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
-        // ... (inchangé) ...
-        if (!sender.hasPermission("shmails.admin")) {
-            return null;
+        if (!hasAnyAdmin(sender)) {
+            return mailCommand.onTabComplete(sender, command, alias, args);
         }
 
         List<String> completions = new ArrayList<>();
-        List<String> subCommands = new ArrayList<>(Arrays.asList("view", "spy", "reload", "clear", "import"));
-
         if (args.length == 1) {
+            List<String> subCommands = SUBCOMMANDS.stream().filter(sub -> can(sender, sub)).collect(Collectors.toList());
             StringUtil.copyPartialMatches(args[0], subCommands, completions);
         } else if (args.length == 2) {
-            if (args[0].equalsIgnoreCase("view") || args[0].equalsIgnoreCase("clear")) {
+            String sub = args[0].toLowerCase(Locale.ROOT);
+            if ((sub.equals("view") || sub.equals("clear")) && can(sender, sub)) {
                 List<String> playerNames = Bukkit.getOnlinePlayers().stream()
                     .map(Player::getName)
                     .collect(Collectors.toList());

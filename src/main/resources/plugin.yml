@@ -14,14 +14,13 @@ libraries:
 
 commands:
   mail:
-    description: Commande principale pour les mails.
-    usage: /mail [joueur] [message] ou /mail
-    aliases: [mails, shmails]
-  shmailadmin:
-    description: Commandes d'administration pour SHMails.
-    usage: /shmailadmin <view|spy|reload|clear|import> [args]
-    permission: shmails.admin
-    aliases: [shma]
+    description: Ouvre votre boîte aux lettres ou envoie un mail à un joueur.
+    usage: /mail [joueur] [message]
+    aliases: [mails]
+  shmails:
+    description: Administration de SHMails (view, spy, clear, import, reload). Sans droit d'administration, se comporte comme /mail.
+    usage: /shmails <view|spy|clear|import|reload> [args]
+    aliases: [shmailadmin, shma]
 
 permissions:
   shmails.use:
@@ -31,23 +30,30 @@ permissions:
     description: Permet d'envoyer des mails.
     default: true
   shmails.admin:
-    description: Permet d'utiliser les commandes d'administration de base.
+    description: Toutes les sous-commandes d'administration de /shmails.
     default: op
+    children:
+      shmails.admin.view: true
+      shmails.admin.view.interact: true
+      shmails.admin.spy: true
+      shmails.admin.reload: true
+      shmails.admin.clear: true
+      shmails.admin.import: true
   shmails.admin.view:
-    description: Permet de voir les mails d'un autre joueur.
+    description: Permet de voir les mails d'un autre joueur (/shmails view).
     default: op
-  shmails.admin.view.interact: # Nouvelle permission pour interagir avec les mails vus
+  shmails.admin.view.interact:
     description: Permet d'interagir (répondre/supprimer) avec les mails lors de la visualisation admin.
     default: op
   shmails.admin.spy:
-    description: Permet d'espionner les mails envoyés.
+    description: Permet d'espionner les mails envoyés (/shmails spy).
     default: op
   shmails.admin.reload:
-    description: Permet de recharger la configuration du plugin.
+    description: Permet de recharger la configuration du plugin (/shmails reload).
     default: op
   shmails.admin.clear:
-    description: Permet de supprimer les mails d'un joueur via commande admin.
+    description: Permet de supprimer les mails d'un joueur via commande admin (/shmails clear).
     default: op
   shmails.admin.import:
-    description: Mode réseau, permet de reprendre en base partagée les mails de ce serveur.
+    description: Mode réseau, permet de reprendre en base partagée les mails de ce serveur (/shmails import).
     default: op

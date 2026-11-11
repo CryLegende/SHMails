@@ -25,7 +25,8 @@ public class MailManager {
     private final ConfigManager configManager;
     private final DatabaseManager databaseManager;
     private final Map<UUID, List<Mail>> mailCache = new ConcurrentHashMap<>();
-    private final SimpleDateFormat dateFormat;
+    // Motif de date_format, relu au reload ; un SimpleDateFormat n'est pas partageable entre threads, il est créé à l'usage
+    private volatile String datePattern;
     // Non nul seulement avec SHNetwork : les boîtes sont alors dans la base partagée et mailCache n'est pas utilisé
     private NetworkMails network;
 
@@ -33,7 +34,12 @@ public class MailManager {
         this.plugin = plugin;
         this.configManager = plugin.getConfigManager();
         this.databaseManager = plugin.getDatabaseManager();
-        this.dateFormat = new SimpleDateFormat(configManager.getDateFormat());
+        this.datePattern = configManager.getDateFormat();
+    }
+
+    /** Relit date_format de config.yml (rechargement). */
+    public void reloadDateFormat() {
+        this.datePattern = configManager.getDateFormat();
     }
 
     public void setNetwork(NetworkMails network) {
@@ -159,7 +165,7 @@ public class MailManager {
 
     /**
      * Retire du cache la boîte d'un joueur hors ligne que plus aucun admin ne consulte (destinataire d'un mail,
-     * boîte vue par /shmailadmin view). Toute modification est déjà écrite : rien à sauvegarder.
+     * boîte vue par /shmails view). Toute modification est déjà écrite : rien à sauvegarder.
      */
     public void releaseIfUnused(UUID playerUUID) {
         if (Bukkit.getPlayer(playerUUID) != null) return;
@@ -197,7 +203,7 @@ public class MailManager {
             network.clearBox(playerUUID);
             return;
         }
-        // Boîte hors cache (/shmailadmin clear d'un joueur hors ligne) : supprimée dans la source sans la charger
+        // Boîte hors cache (/shmails clear d'un joueur hors ligne) : supprimée dans la source sans la charger
         // sur le thread principal.
         List<Mail> mails = mailCache.get(playerUUID);
         if (mails != null && mails.isEmpty()) return;
@@ -225,7 +231,7 @@ public class MailManager {
 
     public String formatDate(long timestamp) {
         try {
-            return dateFormat.format(new Date(timestamp));
+            return new SimpleDateFormat(datePattern).format(new Date(timestamp));
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to format date: " + timestamp + " with format " + configManager.getDateFormat());
             return "Date Error";

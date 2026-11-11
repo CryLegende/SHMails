@@ -8,8 +8,14 @@ import org.bukkit.Registry;
 import org.bukkit.Sound;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -17,18 +23,85 @@ import java.util.stream.Collectors;
 
 public class ConfigManager {
 
+    public static final String MESSAGES_FILE = "messages.yml";
+
     private final SHMails plugin;
-    private FileConfiguration config;
+    private volatile FileConfiguration config;
+    // Textes de messages.yml, remplacés d'un bloc à chaque chargement
+    private volatile FileConfiguration messages = new YamlConfiguration();
 
     public ConfigManager(SHMails plugin) {
         this.plugin = plugin;
         plugin.saveDefaultConfig();
-        reloadConfig();
-    }
-
-    public void reloadConfig() {
         plugin.reloadConfig();
         this.config = plugin.getConfig();
+        loadMessages();
+    }
+
+    /**
+     * Applique un config.yml et un messages.yml déjà lus et validés (rechargement). Rien n'est lu ici : un fichier
+     * invalide a été refusé avant.
+     */
+    public void reload(FileConfiguration newMessages) {
+        plugin.reloadConfig();
+        this.config = plugin.getConfig();
+        applyMessages(newMessages);
+    }
+
+    private void loadMessages() {
+        File file = new File(plugin.getDataFolder(), MESSAGES_FILE);
+        if (!file.exists()) {
+            plugin.saveResource(MESSAGES_FILE, false);
+            migrateMessagesFromConfig(file);
+        }
+        applyMessages(YamlConfiguration.loadConfiguration(file));
+    }
+
+    /**
+     * Premier démarrage après la mise à jour : messages.yml est créé à partir du jar, puis les textes de l'ancienne
+     * section messages: de config.yml (ceux du serveur) y sont reportés. Cette section n'est plus lue ensuite.
+     */
+    private void migrateMessagesFromConfig(File target) {
+        File configFile = new File(plugin.getDataFolder(), "config.yml");
+        if (!configFile.isFile()) {
+            return;
+        }
+        ConfigurationSection old = YamlConfiguration.loadConfiguration(configFile).getConfigurationSection("messages");
+        if (old == null) {
+            return;
+        }
+        YamlConfiguration created = YamlConfiguration.loadConfiguration(target);
+        int moved = 0;
+        for (String key : old.getKeys(true)) {
+            if (!old.isConfigurationSection(key) && created.contains(key) && !created.isConfigurationSection(key)) {
+                created.set(key, old.get(key));
+                moved++;
+            }
+        }
+        try {
+            created.save(target);
+            plugin.getLogger().info("messages.yml créé : " + moved + " texte(s) repris de la section messages de config.yml.");
+        } catch (IOException e) {
+            plugin.getLogger().warning("messages.yml créé sans les textes de config.yml : " + e.getMessage());
+        }
+    }
+
+    /** Remplace les textes ; les clés absentes du fichier du serveur reprennent le texte du jar. */
+    private void applyMessages(FileConfiguration loaded) {
+        try (Reader defaults = new InputStreamReader(plugin.getResource(MESSAGES_FILE), StandardCharsets.UTF_8)) {
+            loaded.setDefaults(YamlConfiguration.loadConfiguration(defaults));
+        } catch (IOException | RuntimeException e) {
+            plugin.getLogger().warning("messages.yml du jar illisible : " + e.getMessage());
+        }
+        this.messages = loaded;
+    }
+
+    /** Un chemin « gui.* » se lit dans config.yml, tout le reste dans messages.yml (avec ou sans « messages. »). */
+    private String rawText(String path) {
+        if (path.startsWith("gui.")) {
+            return config.getString(path);
+        }
+        return messages.getString(path.startsWith("messages.") ? path.substring("messages.".length()) : path);
     }
 
     public String getPrefix() {
@@ -36,10 +109,10 @@ public class ConfigManager {
     }
 
     public String getMessage(String path, String... replacements) {
-        String message = config.getString("messages." + path);
+        String message = messages.getString(path);
         if (message == null) {
-            plugin.getLogger().warning("Message not found in config: messages." + path);
-            message = "&cMissing message: messages." + path;
+            plugin.getLogger().warning("Message not found in messages.yml: " + path);
+            message = "&cMissing message: " + path;
         }
         for (int i = 0; i < replacements.length; i += 2) {
             if (i + 1 < replacements.length) {
@@ -50,14 +123,10 @@ public class ConfigManager {
     }
 
     public String getRawMessage(String path, String... replacements) {
-        String message = config.getString(path); // Changed to directly use path for gui items
+        String message = rawText(path); // gui.* dans config.yml, le reste dans messages.yml
         if (message == null) {
-            // Fallback for older structure if gui items are under messages.gui.
-            message = config.getString("messages." + path);
-            if (message == null) {
-                plugin.getLogger().warning("Raw message/GUI item string not found in config: " + path + " or messages." + path);
-                message = "&cMissing string: " + path;
-            }
+            plugin.getLogger().warning("Raw message/GUI item string not found: " + path);
+            message = "&cMissing string: " + path;
         }
         for (int i = 0; i < replacements.length; i += 2) {
             if (i + 1 < replacements.length) {
@@ -69,9 +138,6 @@ public class ConfigManager {
 
     public List<String> getFormattedLore(String path, String... replacements) {
         List<String> lore = config.getStringList(path);
-        if (lore.isEmpty() && config.contains("messages." + path)) { // Fallback for older structure
-            lore = config.getStringList("messages." + path);
-        }
         if (lore.isEmpty()) {
             plugin.getLogger().warning("Lore not found in config for path: " + path);
             // return Collections.singletonList(ChatUtils.color("&cMissing lore: " + path));
