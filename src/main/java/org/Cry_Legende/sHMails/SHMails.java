@@ -45,6 +45,8 @@ public class SHMails extends JavaPlugin {
     private DatabaseManager databaseManager;
     // null si l'API des dialogues est absente du serveur (réponse par chat uniquement)
     private ReplyDialogs replyDialogs;
+    // Cécité du joueur tant qu'un dialogue du plugin est affiché
+    private DialogBlindness blindness;
     private final Set<UUID> mailSpies = new HashSet<>(); // Ceci devient le cache en mémoire
     // Non nul seulement avec SHNetwork : boîtes et espions sont dans la base partagée
     private NetworkMails network;
@@ -70,6 +72,7 @@ public class SHMails extends JavaPlugin {
         }
 
         this.configManager = new ConfigManager(this);
+        blindness = new DialogBlindness(this, getConfig().getBoolean("dialogues.aveugler-pendant-dialogues", true));
         boolean networkWanted = networkWanted();
         if (!networkWanted) {
             loadSpies(); // Charger les spies avant tout
@@ -109,6 +112,9 @@ public class SHMails extends JavaPlugin {
     public void onDisable() {
         if (replyDialogs != null) {
             replyDialogs.shutdown();
+        }
+        if (blindness != null) {
+            blindness.shutdown();
         }
         if (network == null) {
             saveSpies(); // Sauvegarder les spies
@@ -172,6 +178,7 @@ public class SHMails extends JavaPlugin {
             return false;
         }
         configManager.reload(newMessages);
+        blindness.setEnabled(getConfig().getBoolean("dialogues.aveugler-pendant-dialogues", true));
         mailManager.reloadDateFormat();
         return true;
     }
@@ -327,6 +334,13 @@ public class SHMails extends JavaPlugin {
      */
     public ReplyDialogs getReplyDialogs() {
         return replyDialogs;
+    }
+
+    /**
+     * Affichage et fermeture des dialogues, avec la cécité du joueur pendant qu'ils sont à l'écran.
+     */
+    public DialogBlindness getBlindness() {
+        return blindness;
     }
 
     public Set<UUID> getMailSpies() { // Ceci est maintenant le cache en mémoire

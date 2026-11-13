@@ -132,7 +132,7 @@ public final class ReplyDialogs {
             if (closeInventory) {
                 player.closeInventory();
             }
-            player.showDialog(dialog);
+            plugin.getBlindness().show(player, dialog);
             return true;
         } catch (RuntimeException | LinkageError e) {
             pending.remove(player.getUniqueId(), state);
@@ -152,6 +152,10 @@ public final class ReplyDialogs {
         placeholders.put("max", Component.text(String.valueOf(MAX_LENGTH)));
 
         List<DialogBody> body = new ArrayList<>();
+        String title = text("dialogues.reponse.titre", "&lRépondre");
+        if (!title.isBlank()) {
+            body.add(DialogBody.plainMessage(render(title, placeholders), WIDTH));
+        }
         if (error != null) {
             body.add(DialogBody.plainMessage(error, WIDTH));
         }
@@ -168,7 +172,8 @@ public final class ReplyDialogs {
         ActionButton send = button(text("dialogues.reponse.envoyer", "&a&lEnvoyer"), state, ACTION_OK, placeholders);
         ActionButton cancel = button(text("dialogues.reponse.annuler", "&c&lAnnuler"), state, ACTION_CANCEL, placeholders);
 
-        DialogBase base = DialogBase.builder(render(text("dialogues.reponse.titre", "&lRépondre"), placeholders))
+        // titre vide : l'icône d'avertissement du client reste seule sur sa ligne, le titre est la première ligne du corps
+        DialogBase base = DialogBase.builder(Component.empty())
                 // Échap = bouton « Annuler » : le client lance son action, la réponse est annulée proprement.
                 .canCloseWithEscape(true)
                 // fermé au clic : le client ne retire pas son écran d'attente quand le serveur ferme le dialogue
@@ -370,7 +375,7 @@ public final class ReplyDialogs {
 
     private void safeClose(Player player) {
         try {
-            player.closeDialog();
+            plugin.getBlindness().close(player);
         } catch (RuntimeException e) {
             plugin.getLogger().log(Level.FINE, "Fermeture du dialogue impossible pour " + player.getName(), e);
         }
