@@ -171,9 +171,9 @@ reseau:
   canal: shmails
   # Registre des premières connexions (tenu par SHPlayerTrack) : un destinataire jamais venu sur ce serveur y est
   # cherché avant d'être déclaré introuvable. Vide pour ne pas le consulter.
-  table-premieres-connexions: "Global.sh_track_firstseen"
+  table-premieres-connexions: "minecraft.sh_track_firstseen"
   base-de-donnees:
-    url: "jdbc:mariadb://127.0.0.1:3306/bo_net"
+    url: "jdbc:mariadb://127.0.0.1:3306/minecraft"
     utilisateur: shmails
     mot-de-passe: CHANGE_ME
     # Délai maximal de connexion et de réponse de la base, en millisecondes. Une base qui ne répond pas
