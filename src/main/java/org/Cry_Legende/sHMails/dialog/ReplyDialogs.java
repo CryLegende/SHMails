@@ -11,6 +11,7 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextReplacementConfig;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.Cry_Legende.sHMails.DialogBlindness;
 import org.Cry_Legende.sHMails.SHMails;
 import org.Cry_Legende.sHMails.manager.ConfigManager;
 import org.Cry_Legende.sHMails.manager.MailManager;
@@ -173,11 +174,10 @@ public final class ReplyDialogs {
         ActionButton cancel = button(text("dialogues.reponse.annuler", "&c&lAnnuler"), state, ACTION_CANCEL, placeholders);
 
         // titre vide : l'icône d'avertissement du client reste seule sur sa ligne, le titre est la première ligne du corps
-        DialogBase base = DialogBase.builder(Component.empty())
+        DialogBase base = DialogBlindness.stayOpen(DialogBase.builder(Component.empty()))
                 // Échap = bouton « Annuler » : le client lance son action, la réponse est annulée proprement.
                 .canCloseWithEscape(true)
-                // fermé au clic : le client ne retire pas son écran d'attente quand le serveur ferme le dialogue
-                .afterAction(DialogBase.DialogAfterAction.CLOSE)
+                // gardé ouvert au clic : le dialogue suivant (erreur, écran d'après) le remplace sans clignoter, sinon il est fermé
                 .body(body)
                 .inputs(List.of(input))
                 .build();
