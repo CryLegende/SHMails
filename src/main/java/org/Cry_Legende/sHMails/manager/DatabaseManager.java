@@ -47,7 +47,6 @@ public class DatabaseManager {
         try (Connection conn = createConnection(); Statement stmt = conn.createStatement()) {
             stmt.execute(createTableSQL);
         }
-        plugin.getLogger().info("SQLite database table '" + TABLE_NAME + "' initialized successfully.");
     }
 
     // MODIFICATION 2 : La méthode closeConnection() est maintenant inutile.

@@ -104,8 +104,6 @@ public class SHMails extends JavaPlugin {
         registerCommands();
         registerListeners();
 
-        getLogger().info("SHMails v" + getDescription().getVersion() + " enabled successfully!");
-        getLogger().info("Using storage type: " + configManager.getStorageType());
     }
 
     @Override
@@ -132,7 +130,6 @@ public class SHMails extends JavaPlugin {
         replyingToOriginalMailId.clear();
         replyingToSenderUUID.clear();
         replyingToSenderName.clear();
-        getLogger().info("SHMails disabled.");
     }
 
     private void registerCommands() {
@@ -273,7 +270,6 @@ public class SHMails extends JavaPlugin {
                 getLogger().warning("Invalid UUID found in spies.yml: " + uuidStr);
             }
         }
-        getLogger().info("Loaded " + mailSpies.size() + " admin spies.");
     }
 
     /** Espions de spies.yml, pour la reprise en base partagée (mode réseau). */
@@ -303,7 +299,6 @@ public class SHMails extends JavaPlugin {
         spiesConfig.set("spying-admins", spyUuidsAsStrings);
         try {
             spiesConfig.save(spiesFile);
-            getLogger().info("Saved " + mailSpies.size() + " admin spies.");
         } catch (IOException e) {
             getLogger().severe("Could not save spies.yml: " + e.getMessage());
         }
